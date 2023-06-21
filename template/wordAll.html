@@ -1,0 +1,522 @@
+{{template "header"}}
+<style>
+    table {
+        margin-left: auto;
+        margin-right: auto;
+        border-collapse: separate;
+        border-spacing: 3px 0;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        color: #333;
+        width: 80%;
+    }
+
+    th,
+    td {
+        padding: 7px 5px;
+        text-align: center;
+        border: 1px solid #ddd;
+    }
+
+    tr:hover {
+        background-color: #f5f5f5;
+    }
+
+    thead {
+        background-color: #f2f2f2;
+        font-weight: bold;
+    }
+
+    tbody tr:nth-child(odd) {
+        background-color: #ffffff;
+    }
+
+    tbody tr:nth-child(even) {
+        background-color: #f9f9f9;
+    }
+
+    button {
+        background-color: #4CAF50;
+        color: white;
+        padding: 1px 6px;
+        margin: 6 6px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+    }
+
+    button:hover {
+        background-color: #e0a800;
+    }
+
+    th[data-sortable] {
+        cursor: pointer;
+        position: relative;
+    }
+
+    th[data-sortable]::after {
+        content: '';
+        display: inline-block;
+        width: 0;
+        height: 0;
+        border-left: 4px solid transparent;
+        border-right: 4px solid transparent;
+        border-bottom: 4px solid #666;
+        position: absolute;
+        right: 8px;
+        top: calc(50% - 2px);
+        opacity: 0.3;
+    }
+
+    th[data-sortable][data-ascending="true"]::after {
+        border-bottom: none;
+        border-top: 4px solid #666;
+    }
+</style>
+<main>
+    <h1></h1>
+    <h3>Elements: {{len .}}</h3>
+    <button id="exportToExcelBtn" style="margin-bottom: 10px;">Export to Excel</button>
+    <button id="exportToTxtBtn" style="margin-bottom: 10px;">Export to TXT</button>
+    <form action="/exportToChatGPTBtn" method="POST">
+        <button type="submit" style="margin-bottom: 10px;">Export to ChatGPT</button>
+    </form>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <h3>Add words from ChatGPT</h3>
+    <div style="text-align: center;">
+        <textarea id="wordInput" rows="4" cols="50" style="text-align: center;"
+            placeholder="Copy words from ChatGPT in JSON format and paste here"></textarea>
+    </div>
+
+
+
+    <button id="addWordsButton">Add words</button>
+
+
+
+
+    <div id="paginationContainerTop"></div>
+
+
+    <div style="margin-bottom: 20px;">
+        <input type="text" id="searchInput" placeholder="Поиск..."
+            style="width: 100%; padding: 6px 12px; margin: 6px 0; box-sizing: border-box;" autofocus>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th title="Action">Action</th>
+                <th title="Original" data-sortable>Original</th>
+                <th title="Transcription">Transcription</th>
+
+                <th title="Past Simple Singular">PSS</th>
+                <th title="Past Simple Singular Transcription">PSST</th>
+
+                <th title="Past Simple Plural">PSP</th>
+                <th title="Past Simple Plural Transcription">PSPT</th>
+
+                <th title="Past Participle Singular">PPS</th>
+                <th title="Past Participle Singular Transcription">PPST</th>
+
+                <th title="Past Participle Plural">PPP</th>
+                <th title="Past Participle Plural Transcription">PPPT</th>
+
+                <th title="Translation" data-sortable>Translation</th>
+                <th title="Synonyms">Synonyms</th>
+
+                <th title="Rating" data-sortable>Rating</th>
+                <th title="Action">Action</th>
+
+
+            </tr>
+        </thead>
+        <tbody>
+
+
+            {{range $index, $element := .}}
+            <tr>
+                <td>
+
+                    <button type="button" onclick="handleDeleteClick({{$index}})">Delete</button>
+                </td>
+                <td contenteditable="true" id="WordOriginal{{$index}}">{{$element.WordOriginal}}</td>
+                <td contenteditable="true" id="WordOriginalTranscription{{$index}}">
+                    {{$element.WordOriginalTranscription}}</td>
+
+                <td contenteditable="true" id="WordOriginalPastSimpleSingular{{$index}}">
+                    {{$element.WordOriginalPastSimpleSingular}}</td>
+                <td contenteditable="true" id="WordOriginalPastSimpleSingularTranscription{{$index}}">
+                    {{$element.WordOriginalPastSimpleSingularTranscription}}</td>
+
+                <td contenteditable="true" id="WordOriginalPastSimplePlural{{$index}}">
+                    {{$element.WordOriginalPastSimplePlural}}</td>
+                <td contenteditable="true" id="WordOriginalPastSimplePluralTranscription{{$index}}">
+                    {{$element.WordOriginalPastSimplePluralTranscription}}</td>
+
+                <td contenteditable="true" id="WordOriginalPastParticipleSingular{{$index}}">
+                    {{$element.WordOriginalPastParticipleSingular}}</td>
+                <td contenteditable="true" id="WordOriginalPastParticipleSingularTranscription{{$index}}">
+                    {{$element.WordOriginalPastParticipleSingularTranscription}}</td>
+
+                <td contenteditable="true" id="WordOriginalPastParticiplePlural{{$index}}">
+                    {{$element.WordOriginalPastParticiplePlural}}</td>
+                <td contenteditable="true" id="WordOriginalPastParticiplePluralTranscription{{$index}}">
+                    {{$element.WordOriginalPastParticiplePluralTranscription}}</td>
+
+
+                <td contenteditable="true" id="WordTranslated{{$index}}">{{$element.WordTranslated}}</td>
+                <td contenteditable="true" id="WordOriginalSynonyms{{$index}}">{{$element.WordOriginalSynonyms}}</td>
+
+                </td>
+                <td contenteditable="true" id="Rating{{$index}}">{{$element.Rating}}</td>
+                <td>
+
+                    <button type="button" onclick="handleDeleteClick({{$index}})">Delete</button>
+                </td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    <div id="paginationContainerBottom"></div>
+</main>
+{{template "footer"}}
+
+<script src="https://unpkg.com/xlsx@0.17.2/dist/xlsx.full.min.js"></script>
+
+
+<script>
+
+    function handleKeyDown(e) {
+        // Проверяем, что клавиша Cmd (мета-клавиша) или Ctrl была нажата
+        if (e.metaKey || e.ctrlKey) {
+            // Проверяем, была ли нажата клавиша "1"
+            if (e.key === '1') {
+                callWordHandler();
+            }
+        }
+    }
+
+    function callWordHandler() {
+        fetch('/word', {
+            method: 'GET'
+        })
+            .then(response => response.text())
+            .then(data => {
+                console.log('Сервер ответил:', data);
+            })
+            .catch(error => {
+                console.error('Ошибка запроса:', error);
+            });
+    }
+
+    // Добавляем обработчик событий на нажатие клавиш
+    document.addEventListener('keydown', handleKeyDown);
+
+    async function handleDeleteClick(index) {
+        const confirmation = confirm('Вы уверены, что хотите удалить эту запись?');
+        if (!confirmation) {
+            return;
+        }
+
+        try {
+            const response = await fetch('/handleIndex', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ index })
+            });
+
+            if (response.ok) {
+                location.reload();
+            } else {
+                console.error('Ошибка при отправке запроса:', response.statusText);
+            }
+        } catch (error) {
+            console.error('Ошибка при отправке запроса:', error);
+        }
+    }
+
+
+    function handleSaveClick(index) {
+        const WordOriginal = document.getElementById("WordOriginal" + index).innerText;
+
+        const WordOriginalPastSimpleSingular = document.getElementById("WordOriginalPastSimpleSingular" + index).innerText;
+        const WordOriginalPastSimpleSingularTranscription = document.getElementById("WordOriginalPastSimpleSingularTranscription" + index).innerText;
+
+        const WordOriginalPastSimplePlural = document.getElementById("WordOriginalPastSimplePlural" + index).innerText;
+        const WordOriginalPastSimplePluralTranscription = document.getElementById("WordOriginalPastSimplePluralTranscription" + index).innerText;
+
+        const WordOriginalPastParticipleSingular = document.getElementById("WordOriginalPastParticipleSingular" + index).innerText;
+        const WordOriginalPastParticipleSingularTranscription = document.getElementById("WordOriginalPastParticipleSingularTranscription" + index).innerText;
+
+        const WordOriginalPastParticiplePlural = document.getElementById("WordOriginalPastParticiplePlural" + index).innerText;
+        const WordOriginalPastParticiplePluralTranscription = document.getElementById("WordOriginalPastParticiplePluralTranscription" + index).innerText;
+
+        const WordOriginalTranscription = document.getElementById("WordOriginalTranscription" + index).innerText;
+        const WordTranslated = document.getElementById("WordTranslated" + index).innerText;
+        const WordOriginalSynonyms = document.getElementById("WordOriginalSynonyms" + index).innerText;
+
+        const Rating = parseInt(document.getElementById("Rating" + index).innerText, 10);
+
+        if (isNaN(Rating)) {
+            alert("Рейтинг должен быть числом");
+            return;
+        }
+
+        const requestData = {
+            index,
+            WordOriginal,
+
+            WordOriginalPastSimpleSingular,
+            WordOriginalPastSimplePlural,
+            WordOriginalPastParticipleSingular,
+            WordOriginalPastParticiplePlural,
+
+            WordOriginalPastSimpleSingularTranscription,
+            WordOriginalPastSimplePluralTranscription,
+            WordOriginalPastParticipleSingularTranscription,
+            WordOriginalPastParticiplePluralTranscription,
+
+            WordOriginalTranscription,
+            WordTranslated,
+            WordOriginalSynonyms,
+
+            Rating,
+        };
+
+        fetch("/handleEdit", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify
+                (requestData),
+        })
+            .then((response) => {
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    console.error("Ошибка при отправке запроса:", response.statusText);
+                }
+            })
+            .catch((error) => {
+                console.error("Ошибка при отправке запроса:", error);
+            });
+    }
+
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            const focusedElement = document.activeElement;
+            if (focusedElement) {
+                const rowIndex = focusedElement.id.match(/\d+/);
+                if (rowIndex) {
+                    handleSaveClick(parseInt(rowIndex[0], 10));
+                }
+            }
+        }
+    });
+
+    document.getElementById('searchInput').addEventListener('keyup', function () {
+        let searchQuery = this.value.toLowerCase();
+        let tableRows = document.querySelectorAll('tbody tr');
+
+        tableRows.forEach(function (row) {
+            let originalWord = row.querySelector('[id^="WordOriginal"]').innerText.toLowerCase();
+            let translatedWord = row.querySelector('[id^="WordTranslated"]').innerText.toLowerCase();
+
+            if (originalWord.includes(searchQuery) || translatedWord.includes(searchQuery)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    });
+
+    function exportTableToExcel() {
+        const table = document.querySelector('table');
+        const workBook = XLSX.utils.book_new();
+        const workSheet = XLSX.utils.table_to_sheet(table);
+        XLSX.utils.book_append_sheet(workBook, workSheet, 'Sheet1');
+        XLSX.writeFile(workBook, 'table_export.xlsx');
+    }
+
+    document.getElementById('exportToExcelBtn').addEventListener('click', exportTableToExcel);
+
+    function compareRows(a, b, columnIndex) {
+        const cellA = a.cells[columnIndex].innerText;
+        const cellB = b.cells[columnIndex].innerText;
+
+        return cellA.localeCompare(cellB, undefined, { numeric: true });
+    }
+
+    function sortTable(columnIndex, ascending) {
+        const table = document.querySelector('table');
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+
+        rows.sort((a, b) => {
+            const result = compareRows(a, b, columnIndex);
+            return ascending ? result : -result;
+        });
+
+        tbody.innerHTML = '';
+        rows.forEach(row => tbody.appendChild(row));
+    }
+
+    function handleHeaderClick(event) {
+        const th = event.target;
+        if (!th.hasAttribute('data-sortable')) {
+            return;
+        }
+
+        const columnIndex = Array.from(th.parentNode.children).indexOf(th);
+        const currentSortedHeader = document.querySelector('table thead th[data-ascending]');
+
+        if (currentSortedHeader && currentSortedHeader !== th) {
+            currentSortedHeader.removeAttribute('data-ascending');
+        }
+
+        const ascending = !th.hasAttribute('data-ascending') || th.getAttribute('data-ascending') === 'false';
+        th.setAttribute('data-ascending', ascending);
+        sortTable(columnIndex, ascending);
+    }
+
+
+    const tableHeaders = document.querySelectorAll('table thead th[data-sortable]');
+    tableHeaders.forEach(header => header.addEventListener('click', handleHeaderClick));
+
+    // колличество строк на странице
+    let currentPage = 1;
+    const rowsPerPage = 5000;
+
+    function displayPage(pageNumber) {
+        const tbody = document.querySelector("tbody");
+        const totalRows = tbody.childElementCount;
+        const startRow = (pageNumber - 1) * rowsPerPage;
+        const endRow = startRow + rowsPerPage;
+
+        for (let i = 1; i < totalRows; i++) {
+            const row = tbody.children[i];
+            if (i > startRow && i <= endRow) {
+                row.style.display = "table-row";
+            } else {
+                row.style.display = "none";
+            }
+        }
+    }
+    function createPaginationButtons() {
+        const paginationContainerTop = document.getElementById("paginationContainerTop");
+        const paginationContainerBottom = document.getElementById("paginationContainerBottom");
+        const totalRows = document.querySelector("tbody").childElementCount - 1; // Вычитаем 1 из-за строки добавления нового слова
+        const totalPages = Math.ceil(totalRows / rowsPerPage);
+
+        for (let i = 1; i <= totalPages; i++) {
+            const buttonTop = document.createElement("button");
+            const buttonBottom = document.createElement("button");
+
+            [buttonTop, buttonBottom].forEach((button, index) => {
+                button.textContent = i;
+                button.addEventListener("click", () => {
+                    currentPage = i;
+                    displayPage(currentPage);
+                    updateButtonStyles();
+                });
+
+                if (i === currentPage) {
+                    button.style.backgroundColor = "#e0a800";
+                }
+
+                if (index === 0) {
+                    paginationContainerTop.appendChild(button);
+                } else {
+                    paginationContainerBottom.appendChild(button);
+                }
+            });
+        }
+    }
+    function updateButtonStyles() {
+        const paginationContainerTop = document.getElementById("paginationContainerTop");
+        const paginationContainerBottom = document.getElementById("paginationContainerBottom");
+
+        [paginationContainerTop, paginationContainerBottom].forEach((container) => {
+            const buttons = container.querySelectorAll("button");
+            buttons.forEach((button) => {
+                if (parseInt(button.textContent, 10) === currentPage) {
+                    button.style.backgroundColor = "#e0a800";
+                } else {
+                    button.style.backgroundColor = "";
+                }
+            });
+        });
+    }
+
+
+    document.addEventListener("DOMContentLoaded", () => {
+        displayPage(currentPage);
+        createPaginationButtons();
+    });
+    function displayPage(pageNumber) {
+        const tbody = document.querySelector("tbody");
+        const totalRows = tbody.childElementCount;
+        const startRow = (pageNumber - 1) * rowsPerPage;
+        const endRow = startRow + rowsPerPage;
+
+        for (let i = 0; i < totalRows; i++) {
+            const row = tbody.children[i];
+            if (pageNumber === 1 && i === 0) { // выводим первую строку только на первой странице
+                row.style.display = "table-row";
+            } else if (i >= startRow && i < endRow) { // выводим все строки, начиная со второй, на остальных страницах
+                row.style.display = "table-row";
+            } else {
+                row.style.display = "none";
+            }
+        }
+    }
+
+    function exportToTxt() {
+        const table = document.querySelector('table');
+        const rows = Array.from(table.querySelectorAll('tbody tr'));
+
+        const textContent = rows.map(row => {
+            const wordOriginalCell = row.querySelector('[id^="WordOriginal"]');
+            return wordOriginalCell.innerText;
+        }).join('\n');
+
+        const element = document.createElement('a');
+        const file = new Blob([textContent], { type: 'text/plain' });
+        element.href = URL.createObjectURL(file);
+        element.download = 'word_original.txt';
+        element.click();
+    }
+
+    document.getElementById('exportToTxtBtn').addEventListener('click', exportToTxt);
+    // добавление слов с вставленного текста
+    $(document).ready(function () {
+        $('#addWordsButton').click(function () {
+            var wordsJson = $('#wordInput').val();
+            var wordsArray = JSON.parse(wordsJson);
+
+            // Отправка данных на сервер
+            $.ajax({
+                url: '/wordAddStruct', // Путь к серверному скрипту для обновления JSON файла
+                type: 'POST',
+                data: JSON.stringify(wordsArray),
+                contentType: 'application/json',
+                success: function (response) {
+                    alert('Слова успешно добавлены в JSON файл!');
+                    location.reload(); // Обновление страницы после успешного добавления слов
+                },
+                error: function () {
+                    alert('Произошла ошибка при добавлении слов в JSON файл.');
+                }
+            });
+        });
+    });
+
+
+</script>

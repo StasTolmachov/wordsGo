@@ -1,0 +1,176 @@
+{{template "header"}}
+<style>
+    .form-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .selected {
+        background-color: #57db1a;
+    }
+
+    ul {
+        list-style: none;
+        background-color: #fff;
+        border: 1px solid #b0b0b0;
+        border-radius: 4px;
+        margin: 0;
+        padding: 0;
+        max-height: 400px;
+        overflow-y: auto;
+        position: center;
+        width: 100%;
+        z-index: 1000;
+        align-items: center;
+    }
+
+    li {
+        padding: 8px;
+        cursor: pointer;
+    }
+
+    li:hover,
+    li.selected {
+        background-color: #f5f5f5;
+    }
+</style>
+<main>
+    <h2></h2>
+    <form action="/wordAdd" method="POST" class="form-container">
+        <input type="text" name="WordOriginal" id="WordOriginal" placeholder="Original" class="form-control"
+            autofocus><br>
+        <div id="resultsContainer"></div>
+        <input type="text" name="WordTranslated" id="WordTranslated" placeholder="Translated"
+            class="form-control"><br>
+        <input type="text" name="WordOriginalTranscription" id="WordOriginalTranscription"
+            placeholder="Transcription" class="form-control"><br>
+        <input type="text" name="WordOriginalPartOfSpeech" id="WordOriginalPartOfSpeech"
+            placeholder="Part Of Speech" class="form-control"><br>
+        <input type="text" name="WordOriginalSynonyms" id="WordOriginalSynonyms" placeholder="Synonyms"
+            class="form-control"><br>
+
+        <input type="text" name="WordOriginalPastSimpleSingular" id="WordOriginalPastSimpleSingular"
+            placeholder="Past Simple Singular" class="form-control"><br>
+        <input type="text" name="WordOriginalPastSimpleSingularTranscription"
+            id="WordOriginalPastSimpleSingularTranscription" placeholder="Transcription"
+            class="form-control"><br>
+        <input type="text" name="WordOriginalPastSimplePlural" id="WordOriginalPastSimplePlural"
+            placeholder="Past Simple Plural" class="form-control"><br>
+        <input type="text" name="WordOriginalPastSimplePluralTranscription"
+            id="WordOriginalPastSimplePluralTranscription" placeholder="Transcription"
+            class="form-control"><br>
+        <input type="text" name="WordOriginalPastParticipleSingular" id="WordOriginalPastParticipleSingular"
+            placeholder="Past Participle Singular" class="form-control"><br>
+        <input type="text" name="WordOriginalPastParticipleSingularTranscription"
+            id="WordOriginalPastParticipleSingularTranscription"
+            placeholder="Transcription" class="form-control"><br>
+        <input type="text" name="WordOriginalPastParticiplePlural" id="WordOriginalPastParticiplePlural"
+            placeholder="Past Participle Plural" class="form-control"><br>
+        <input type="text" name="WordOriginalPastParticiplePluralTranscription"
+            id="WordOriginalPastParticiplePluralTranscription"
+            placeholder="Transcription" class="form-control"><br>
+
+        <button class="btn btn-warning" autofocus>Save</button>
+
+    </form>
+</main>
+{{template "footer"}}
+
+<script>
+    const searchInput = document.getElementById('WordOriginal');
+    const words = {{.}}; // предполагается, что вы передаете данные слов с сервера как объект JavaScript
+    let selectedIndex = -1;
+
+    searchInput.addEventListener('input', event => {
+        const query = event.target.value;
+        const results = searchWords(query);
+        updateResultsDropdown(results);
+        selectedIndex = -1; // Сбросить выбранный индекс при изменении поискового запроса
+    });
+
+    searchInput.addEventListener('keydown', event => {
+        const resultsContainer = document.getElementById('resultsContainer');
+        const items = resultsContainer.getElementsByTagName('li');
+
+        if (event.key === 'ArrowDown') {
+            selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+        } else if (event.key === 'ArrowUp') {
+            selectedIndex = Math.max(selectedIndex - 1, -1);
+        } else if (event.key === 'Enter') {
+            if (selectedIndex > -1) {
+                selectResult(JSON.parse(items[selectedIndex].dataset.word));
+            }
+            event.preventDefault();
+            return;
+        } else {
+            return;
+        }
+
+        Array.from(items).forEach((item, index) => {
+            if (index === selectedIndex) {
+                item.classList.add('selected');
+            } else {
+                item.classList.remove('selected');
+            }
+        });
+    });
+
+    function searchWords(query) {
+        const filteredWords = words.filter(word => word.WordOriginal.toLowerCase().startsWith(query.toLowerCase()));
+        return filteredWords.sort((a, b) => a.WordOriginal.localeCompare(b.WordOriginal)); // сортировка по алфавиту
+    }
+
+
+
+    function updateResultsDropdown(results) {
+        const resultsContainer = document.getElementById('resultsContainer');
+        resultsContainer.innerHTML = '';
+
+        // Если строка поиска пуста, не выводим выпадающий список
+        if (results.length === 0) {
+            return;
+        }
+
+        const list = document.createElement('ul');
+
+        // Ограничиваем количество результатов до 30
+        const limitedResults = results.slice(0, 30);
+
+        limitedResults.forEach(result => {
+            const listItem = document.createElement('li');
+            listItem.textContent = result.WordOriginal;
+            listItem.dataset.word = JSON.stringify(result); // Добавить эту строку
+            listItem.addEventListener('click', () => {
+                selectResult(result);
+            });
+            list.appendChild(listItem);
+        });
+
+        resultsContainer.appendChild(list);
+    }
+
+
+
+
+
+    function selectResult(result) {
+        document.getElementById('WordOriginal').value = result.WordOriginal;
+        document.getElementById('WordTranslated').value = result.WordTranslated;
+        document.getElementById('WordOriginalTranscription').value = result.WordOriginalTranscription;
+        document.getElementById('WordOriginalPartOfSpeech').value = result.WordOriginalPartOfSpeech;
+        document.getElementById('WordOriginalSynonyms').value = result.WordOriginalSynonyms;
+        document.getElementById('WordOriginalPastSimpleSingular').value = result.WordOriginalPastSimpleSingular;
+        document.getElementById('WordOriginalPastSimpleSingularTranscription').value = result.WordOriginalPastSimpleSingularTranscription;
+        document.getElementById('WordOriginalPastSimplePlural').value = result.WordOriginalPastSimplePlural;
+        document.getElementById('WordOriginalPastSimplePluralTranscription').value = result.WordOriginalPastSimplePluralTranscription;
+        document.getElementById('WordOriginalPastParticipleSingular').value = result.WordOriginalPastParticipleSingular;
+        document.getElementById('WordOriginalPastParticipleSingularTranscription').value = result.WordOriginalPastParticipleSingularTranscription;
+        document.getElementById('WordOriginalPastParticiplePlural').value = result.WordOriginalPastParticiplePlural;
+        document.getElementById('WordOriginalPastParticiplePluralTranscription').value = result.WordOriginalPastParticiplePluralTranscription;
+
+        // Закройте выпадающий список после выбора результата
+        document.getElementById('resultsContainer').innerHTML = '';
+        // add_button.enabled = true; // сделать кнопку "Добавить" активной
+    }
+</script>

@@ -1,0 +1,119 @@
+{{template "header"}}
+<style>
+    .form-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        font-size: 36px;
+        font-family: Arial, sans-serif;
+    }
+
+    .center-text {
+        text-align: center;
+    }
+
+    .error-notification {
+        display: inline-block;
+        padding: 10px;
+        background-color: #ffffff;
+        color: #000000;
+        border: 5px solid #4CAF50;
+        border-radius: 4px;
+        margin-bottom: 1px;
+        font-size: 36px;
+        font-family: Arial, sans-serif;
+    }
+
+    table {
+        margin-left: auto;
+        margin-right: auto;
+        border-collapse: separate;
+        border-spacing: 3px 0;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        color: #333;
+        width: 80%;
+    }
+
+    th,
+    td {
+        padding: 5px;
+        text-align: center;
+    }
+
+    tr:hover {
+        background-color: #f5f5f5;
+    }
+
+    .form-control {
+        display: inline-block;
+        margin-left: auto;
+        margin-right: auto;
+        border-collapse: separate;
+        border-spacing: 3px 0;
+        font-family: Arial, sans-serif;
+        font-size: 36px;
+        color: #000000;
+
+    }
+
+    .btn {
+        display: inline-block;
+        margin-left: auto;
+        margin-right: auto;
+        border-collapse: separate;
+        border-spacing: 3px 0;
+        font-family: Arial, sans-serif;
+        font-size: 36px;
+        color: #ffffff;
+
+
+    }
+
+    .WordOriginalTranscription {
+        font-size: 36px;
+    }
+
+    .WordOriginalSynonyms {
+        font-size: 36px;
+    }
+</style>
+<main>
+    <h2 class="center-text"></h2>
+
+    <h3 class="center-text error-notification">{{.WordTranslated}}</h3><br>
+    <h3 class="WordTranslated-text error-notification" id="WordOriginal-text">{{.WordOriginal}}</h3>
+    <h3 class="WordTranslated-text WordOriginalTranscription">{{.WordOriginalTranscription}}</h3>
+    <h3 class="WordTranslated-text WordOriginalSynonyms">{{.WordOriginalSynonyms}}</h3>
+    <button id="speak-button" class="btn btn-info">Play</button>
+    <form action="/word" method="POST">
+        <button class="btn btn-warning" autofocus>next</button>
+    </form>
+    <form action="/done" method="POST">
+        <button class="btn btn-warning" autofocus>Done</button>
+    </form>
+</main>
+{{template "footer"}}
+
+<script>
+    function speak(text) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        window.speechSynthesis.speak(utterance);
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+        const WordOriginalTextElement = document.getElementById("WordOriginal-text");
+        const speakButton = document.getElementById("speak-button");
+        if (WordOriginalTextElement && speakButton) {
+            const WordOriginalText = WordOriginalTextElement.textContent;
+
+            // Воспроизвести текст автоматически при загрузке страницы
+            speak(WordOriginalText);
+
+            // Воспроизвести текст при нажатии на кнопку
+            speakButton.addEventListener("click", () => {
+                speak(WordOriginalText);
+            });
+        }
+    });
+</script>

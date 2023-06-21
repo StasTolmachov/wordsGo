@@ -1,0 +1,77 @@
+/* styles.css */
+
+body {
+    margin: 0;
+    font-size: 18px;
+}
+
+header {
+    text-align: center;
+}
+
+main {
+    width: 100%;
+    text-align: center;
+}
+
+.topnav {
+    display: flex;
+    justify-content: center;
+    background-color: #333;
+    padding: 10px;
+}
+
+.topnav a {
+    display: inline-block;
+    color: #f2f2f2;
+    text-align: center;
+    padding: 14px 16px;
+    text-decoration: none;
+    font-size: 17px;
+}
+
+.topnav a:hover {
+    background-color: #ddd;
+    color: black;
+}
+
+.topnav a.active {
+    background-color: #4CAF50;
+    color: white;
+}
+
+footer {
+    text-align: center;
+    padding: 20px;
+    background-color: #333;
+    color: #f2f2f2;
+    margin-top: 20px;
+}
+
+.form-control,
+.btn {
+    width: 100%;
+    padding: 12px 20px;
+    margin: 8px 0;
+    display: inline-block;
+    border: 1px solid #ccc;
+    box-sizing: border-box;
+    text-align: center;
+}
+
+.form-control {
+    font-size: 36px;
+}
+
+.btn {
+    font-size: 24px;
+    background-color: #4CAF50;
+    color: white;
+    padding: 14px 20px;
+    border: none;
+    cursor: pointer;
+}
+
+.rus-text.rus-text {
+    font-size: 36px;
+}
