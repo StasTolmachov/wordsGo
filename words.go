@@ -60,16 +60,16 @@ var TenWords []DictionaryStruct
 
 // var MyLibrary string = "library/EnglishForEveryone.json"
 // var MyLibrary string = "library/weeks.json"
-var MyLibrary string = "library/HF_Networking.json"
+//var MyLibrary string = "library/HF_Networking.json"
 
-//var MyLibrary string = "library/Oxford_A1.json"
+var MyLibrary string = "library/Oxford_A1.json"
 
 //var MyLibrary string = "library/weeks.json"
 
 func main() {
 
 	logger.LogSetupConsole()
-	logrus.Printf("запуск сервера localhost:8080/wordAll")
+	logrus.Printf("запуск сервера http://localhost:8080/wordAll")
 
 	//  открываем файл
 	jsonFile, err := os.Open(MyLibrary)

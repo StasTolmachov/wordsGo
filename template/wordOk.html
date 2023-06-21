@@ -64,18 +64,18 @@
         border-collapse: separate;
         border-spacing: 3px 0;
         font-family: Arial, sans-serif;
-        font-size: 36px;
+        font-size: 24px;
         color: #ffffff;
 
 
     }
 
     .WordOriginalTranscription {
-        font-size: 36px;
+        font-size: 24px;
     }
 
     .WordOriginalSynonyms {
-        font-size: 36px;
+        font-size: 24px;
     }
 </style>
 <main>
@@ -87,7 +87,7 @@
     <h3 class="WordTranslated-text WordOriginalSynonyms">{{.WordOriginalSynonyms}}</h3>
     <button id="speak-button" class="btn btn-info">Play</button>
     <form action="/word" method="POST">
-        <button class="btn btn-warning" autofocus>next</button>
+        <button class="btn btn-warning" autofocus>Next</button>
     </form>
     <form action="/done" method="POST">
         <button class="btn btn-warning" autofocus>Done</button>
