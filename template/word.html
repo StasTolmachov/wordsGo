@@ -95,17 +95,22 @@
         }
     </style>
 </head>
-
 <body>
     {{template "header"}}
     <main>
         <h3 class="center-text error-notification">{{.WordTranslated}}</h3>
         <form action="/wordOtvet" method="POST" class="form-container">
-            <input type="text" name="word" id="word" placeholder="Enter translation" class="form-control" autofocus><br>
+            <input type="text" name="word" id="word" placeholder="Enter translation" class="form-control">
             <button class="btn btn-warning">Send</button>
         </form>
     </main>
     {{template "footer"}}
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('word').focus();
+        });
+    </script>
 </body>
 
 </html>
