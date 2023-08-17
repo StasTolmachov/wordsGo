@@ -58,11 +58,11 @@ type ElementWithIndex struct {
 
 var TenWords []DictionaryStruct
 
-// var MyLibrary string = "library/EnglishForEveryone.json"
+var MyLibrary string = "library/EnglishForEveryone.json"
 // var MyLibrary string = "library/weeks.json"
 //var MyLibrary string = "library/HF_Networking.json"
 
-var MyLibrary string = "library/Oxford_A1.json"
+// var MyLibrary string = "library/Oxford_A1.json"
 
 //var MyLibrary string = "library/weeks.json"
 
