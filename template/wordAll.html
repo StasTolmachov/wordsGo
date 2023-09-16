@@ -108,9 +108,12 @@
     <table>
         <thead>
             <tr>
-                <th title="Action">Action</th>
+                <!-- <th title="Action">Action</th> -->
                 <th title="Original" data-sortable>Original</th>
                 <th title="Transcription">Transcription</th>
+
+                <th title="Translation" data-sortable>Translation</th>
+                <th title="Synonyms">Synonyms</th>
 
                 <th title="Past Simple Singular">PSS</th>
                 <th title="Past Simple Singular Transcription">PSST</th>
@@ -124,8 +127,7 @@
                 <th title="Past Participle Plural">PPP</th>
                 <th title="Past Participle Plural Transcription">PPPT</th>
 
-                <th title="Translation" data-sortable>Translation</th>
-                <th title="Synonyms">Synonyms</th>
+                
 
                 <th title="Rating" data-sortable>Rating</th>
                 <th title="Action">Action</th>
@@ -138,13 +140,16 @@
 
             {{range $index, $element := .}}
             <tr>
-                <td>
+                <!-- <td>
 
                     <button type="button" onclick="handleDeleteClick({{$index}})">Delete</button>
-                </td>
+                </td> -->
                 <td contenteditable="true" id="WordOriginal{{$index}}">{{$element.WordOriginal}}</td>
                 <td contenteditable="true" id="WordOriginalTranscription{{$index}}">
                     {{$element.WordOriginalTranscription}}</td>
+
+                    <td contenteditable="true" id="WordTranslated{{$index}}">{{$element.WordTranslated}}</td>
+                <td contenteditable="true" id="WordOriginalSynonyms{{$index}}">{{$element.WordOriginalSynonyms}}</td>
 
                 <td contenteditable="true" id="WordOriginalPastSimpleSingular{{$index}}">
                     {{$element.WordOriginalPastSimpleSingular}}</td>
@@ -167,8 +172,7 @@
                     {{$element.WordOriginalPastParticiplePluralTranscription}}</td>
 
 
-                <td contenteditable="true" id="WordTranslated{{$index}}">{{$element.WordTranslated}}</td>
-                <td contenteditable="true" id="WordOriginalSynonyms{{$index}}">{{$element.WordOriginalSynonyms}}</td>
+                
 
                 </td>
                 <td contenteditable="true" id="Rating{{$index}}">{{$element.Rating}}</td>
