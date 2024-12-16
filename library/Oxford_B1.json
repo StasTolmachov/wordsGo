@@ -49,22 +49,5 @@
     "WordOriginalSynonyms": "abroad, overseas, across the border, oversea",
     "WordOriginalPartOfSpeech": "наречие",
     "Rating": 0
-  },
-  {
-    "Index": 0,
-    "WordOriginal": "accept",
-    "WordTranslated": "принимать",
-    "WordOriginalTranscription": "[əkˈsɛpt]",
-    "WordOriginalPastSimpleSingular": "",
-    "WordOriginalPastSimpleSingularTranscription": "",
-    "WordOriginalPastSimplePlural": "",
-    "WordOriginalPastSimplePluralTranscription": "",
-    "WordOriginalPastParticipleSingular": "",
-    "WordOriginalPastParticipleSingularTranscription": "",
-    "WordOriginalPastParticiplePlural": "",
-    "WordOriginalPastParticiplePluralTranscription": "",
-    "WordOriginalSynonyms": "take, accept, receive, adopt, assume, pass",
-    "WordOriginalPartOfSpeech": "глагол",
-    "Rating": 0
   }
 ]
