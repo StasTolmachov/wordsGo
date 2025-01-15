@@ -14,7 +14,7 @@
     "WordOriginalPastParticiplePluralTranscription": "",
     "WordOriginalSynonyms": "absolutely, totally, utterly, sheer",
     "WordOriginalPartOfSpeech": "наречие",
-    "Rating": 0
+    "Rating": 2
   },
   {
     "Index": 0,
@@ -31,7 +31,7 @@
     "WordOriginalPastParticiplePluralTranscription": "",
     "WordOriginalSynonyms": "academic, academical, collegiate",
     "WordOriginalPartOfSpeech": "имя прилагательное",
-    "Rating": 0
+    "Rating": 1
   },
   {
     "Index": 0,
@@ -48,7 +48,7 @@
     "WordOriginalPastParticiplePluralTranscription": "",
     "WordOriginalSynonyms": "access, approach, entrance, admission, admittance, accession",
     "WordOriginalPartOfSpeech": "имя существительное",
-    "Rating": 0
+    "Rating": 1
   },
   {
     "Index": 0,
@@ -65,7 +65,7 @@
     "WordOriginalPastParticiplePluralTranscription": "",
     "WordOriginalSynonyms": "housing, accommodation, lodging, habitation, dwelling, quarters",
     "WordOriginalPartOfSpeech": "имя существительное",
-    "Rating": 0
+    "Rating": 1
   },
   {
     "Index": 0,
@@ -82,7 +82,7 @@
     "WordOriginalPastParticiplePluralTranscription": "",
     "WordOriginalSynonyms": "account, score, bill, tab, invoice, count",
     "WordOriginalPartOfSpeech": "имя существительное",
-    "Rating": 0
+    "Rating": 1
   },
   {
     "Index": 0,
@@ -99,7 +99,7 @@
     "WordOriginalPastParticiplePluralTranscription": "",
     "WordOriginalSynonyms": "attainment, achievement, accomplishment, progress, breakthrough, arrival",
     "WordOriginalPartOfSpeech": "имя существительное",
-    "Rating": 0
+    "Rating": 1
   },
   {
     "Index": 0,
@@ -116,7 +116,7 @@
     "WordOriginalPastParticiplePluralTranscription": "",
     "WordOriginalSynonyms": "law, act, principle, jus, ordinance, lex",
     "WordOriginalPartOfSpeech": "имя существительное",
-    "Rating": 0
+    "Rating": 1
   },
   {
     "Index": 0,
@@ -133,7 +133,7 @@
     "WordOriginalPastParticiplePluralTranscription": "",
     "WordOriginalSynonyms": "ad, adt, advt",
     "WordOriginalPartOfSpeech": "сокращение",
-    "Rating": 0
+    "Rating": 1
   },
   {
     "Index": 0,
@@ -150,6 +150,6 @@
     "WordOriginalPastParticiplePluralTranscription": "",
     "WordOriginalSynonyms": "addition, appendix, supplementation, supplement, extension, supplemental",
     "WordOriginalPartOfSpeech": "имя существительное",
-    "Rating": 0
+    "Rating": 1
   }
 ]
