@@ -1,0 +1,13 @@
+all: false
+dir: "{{.InterfaceDir}}/mocks"
+filename: "{{.PackageName}}_mock.go"
+log-level: info
+structname: '{{.Mock}}{{.InterfaceName}}'
+recursive: false
+packages:
+  foxminded/wordsGo/internal/repository:
+    config:
+      all: true
+  foxminded/wordsGo/internal/service:
+    config:
+      all: true
