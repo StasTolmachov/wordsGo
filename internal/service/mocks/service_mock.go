@@ -91,7 +91,7 @@ func (_m *MockUserService) Create(ctx context.Context, req models.CreateUserRequ
 	ret := _m.Called(ctx, req)
 
 	if len(ret) == 0 {
-		panic("no return value specified for Create")
+		panic("no return value specified for CreateUser")
 	}
 
 	var r0 *models.UserResponse
@@ -116,7 +116,7 @@ func (_m *MockUserService) Create(ctx context.Context, req models.CreateUserRequ
 	return r0, r1
 }
 
-// MockUserService_Create_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Create'
+// MockUserService_Create_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateUser'
 type MockUserService_Create_Call struct {
 	*mock.Call
 }
@@ -125,7 +125,7 @@ type MockUserService_Create_Call struct {
 //   - ctx context.Context
 //   - req models.CreateUserRequest
 func (_e *MockUserService_Expecter) Create(ctx interface{}, req interface{}) *MockUserService_Create_Call {
-	return &MockUserService_Create_Call{Call: _e.mock.On("Create", ctx, req)}
+	return &MockUserService_Create_Call{Call: _e.mock.On("CreateUser", ctx, req)}
 }
 
 func (_c *MockUserService_Create_Call) Run(run func(ctx context.Context, req models.CreateUserRequest)) *MockUserService_Create_Call {
@@ -150,7 +150,7 @@ func (_m *MockUserService) Delete(ctx context.Context, requester *models.User, t
 	ret := _m.Called(ctx, requester, targetID)
 
 	if len(ret) == 0 {
-		panic("no return value specified for Delete")
+		panic("no return value specified for DeleteUser")
 	}
 
 	var r0 error
@@ -163,7 +163,7 @@ func (_m *MockUserService) Delete(ctx context.Context, requester *models.User, t
 	return r0
 }
 
-// MockUserService_Delete_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Delete'
+// MockUserService_Delete_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteUser'
 type MockUserService_Delete_Call struct {
 	*mock.Call
 }
@@ -173,7 +173,7 @@ type MockUserService_Delete_Call struct {
 //   - requester *models.User
 //   - targetID uuid.UUID
 func (_e *MockUserService_Expecter) Delete(ctx interface{}, requester interface{}, targetID interface{}) *MockUserService_Delete_Call {
-	return &MockUserService_Delete_Call{Call: _e.mock.On("Delete", ctx, requester, targetID)}
+	return &MockUserService_Delete_Call{Call: _e.mock.On("DeleteUser", ctx, requester, targetID)}
 }
 
 func (_c *MockUserService_Delete_Call) Run(run func(ctx context.Context, requester *models.User, targetID uuid.UUID)) *MockUserService_Delete_Call {
@@ -422,7 +422,7 @@ func (_m *MockUserService) Update(ctx context.Context, id uuid.UUID, req models.
 	ret := _m.Called(ctx, id, req)
 
 	if len(ret) == 0 {
-		panic("no return value specified for Update")
+		panic("no return value specified for UpdateUser")
 	}
 
 	var r0 *models.UserResponse
@@ -447,7 +447,7 @@ func (_m *MockUserService) Update(ctx context.Context, id uuid.UUID, req models.
 	return r0, r1
 }
 
-// MockUserService_Update_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Update'
+// MockUserService_Update_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateUser'
 type MockUserService_Update_Call struct {
 	*mock.Call
 }
@@ -457,7 +457,7 @@ type MockUserService_Update_Call struct {
 //   - id uuid.UUID
 //   - req models.UpdateUserRequest
 func (_e *MockUserService_Expecter) Update(ctx interface{}, id interface{}, req interface{}) *MockUserService_Update_Call {
-	return &MockUserService_Update_Call{Call: _e.mock.On("Update", ctx, id, req)}
+	return &MockUserService_Update_Call{Call: _e.mock.On("UpdateUser", ctx, id, req)}
 }
 
 func (_c *MockUserService_Update_Call) Run(run func(ctx context.Context, id uuid.UUID, req models.UpdateUserRequest)) *MockUserService_Update_Call {

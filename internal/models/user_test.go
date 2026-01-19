@@ -51,7 +51,7 @@ func TestNewUser(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "Create Admin User Successfully",
+			name: "CreateUser Admin User Successfully",
 			req: CreateUserRequest{
 				Email:     "admin@admin.com",
 				Password:  "StrongPass1!",

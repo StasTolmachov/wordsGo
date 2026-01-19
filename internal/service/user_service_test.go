@@ -44,7 +44,7 @@ func TestUserService_Create(t *testing.T) {
 		{
 			name: "success",
 			mockBehavior: func(r *mocks.MockUserRepository) {
-				r.On("Create", ctx, mock.AnythingOfType("*modelsDB.UserDB")).Return(&modelsRepo.UserDB{
+				r.On("CreateUser", ctx, mock.AnythingOfType("*modelsDB.UserDB")).Return(&modelsRepo.UserDB{
 					ID:        uuid.New(),
 					Email:     req.Email,
 					FirstName: req.FirstName,
@@ -58,7 +58,7 @@ func TestUserService_Create(t *testing.T) {
 		{
 			name: "Duplicate Email",
 			mockBehavior: func(r *mocks.MockUserRepository) {
-				r.On("Create", ctx, mock.AnythingOfType("*modelsDB.UserDB")).Return(nil, modelsRepo.ErrDuplicateEmail)
+				r.On("CreateUser", ctx, mock.AnythingOfType("*modelsDB.UserDB")).Return(nil, modelsRepo.ErrDuplicateEmail)
 			},
 			expectedError: models.ErrUserAlreadyExists,
 		},
@@ -237,7 +237,7 @@ func TestUserService_Delete(t *testing.T) {
 			name: "success",
 			mockBehavior: func(r *mocks.MockUserRepository) {
 				r.On("GetUserByID", ctx, userID).Return(&modelsRepo.UserDB{ID: userID}, nil)
-				r.On("Delete", ctx, userID).Return(nil)
+				r.On("DeleteUser", ctx, userID).Return(nil)
 			},
 			expectedError: nil,
 		},
@@ -245,7 +245,7 @@ func TestUserService_Delete(t *testing.T) {
 			name: "ErrUserNotFound",
 			mockBehavior: func(r *mocks.MockUserRepository) {
 				r.On("GetUserByID", ctx, userID).Return(&modelsRepo.UserDB{ID: userID}, nil)
-				r.On("Delete", ctx, userID).Return(modelsRepo.ErrUserNotFound)
+				r.On("DeleteUser", ctx, userID).Return(modelsRepo.ErrUserNotFound)
 			},
 			expectedError: models.ErrUserNotFound,
 		},
@@ -253,7 +253,7 @@ func TestUserService_Delete(t *testing.T) {
 			name: "Failure: Unexpected Repo Error",
 			mockBehavior: func(r *mocks.MockUserRepository) {
 				r.On("GetUserByID", ctx, userID).Return(&modelsRepo.UserDB{ID: userID}, nil)
-				r.On("Delete", ctx, userID).Return(unexpectedErr)
+				r.On("DeleteUser", ctx, userID).Return(unexpectedErr)
 			},
 			expectedError: unexpectedErr,
 		},
@@ -298,12 +298,12 @@ func TestUserService_Update(t *testing.T) {
 		assertFunc    func(t *testing.T, resp *models.UserResponse)
 	}{
 		{
-			name: "Success: Update Email Only",
+			name: "Success: UpdateUser Email Only",
 			req: models.UpdateUserRequest{
 				Email: ptr("new@example.com"),
 			},
 			mockBehavior: func(r *mocks.MockUserRepository) {
-				r.On("Update", mock.Anything, userID, mock.IsType(map[string]any{})).
+				r.On("UpdateUser", mock.Anything, userID, mock.IsType(map[string]any{})).
 					Run(func(args mock.Arguments) {
 						fields := args.Get(2).(map[string]any)
 						assert.Contains(t, fields, "email")
@@ -317,12 +317,12 @@ func TestUserService_Update(t *testing.T) {
 			},
 		},
 		{
-			name: "Success: Update Password Only (check hash in fields)",
+			name: "Success: UpdateUser Password Only (check hash in fields)",
 			req: models.UpdateUserRequest{
 				Password: ptr("NewPass123!"),
 			},
 			mockBehavior: func(r *mocks.MockUserRepository) {
-				r.On("Update", mock.Anything, userID, mock.IsType(map[string]any{})).
+				r.On("UpdateUser", mock.Anything, userID, mock.IsType(map[string]any{})).
 					Run(func(args mock.Arguments) {
 						fields := args.Get(2).(map[string]any)
 						hash, ok := fields["password_hash"].(string)
@@ -334,11 +334,11 @@ func TestUserService_Update(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			name: "Success: No Fields To Update (No-op)",
+			name: "Success: No Fields To UpdateUser (No-op)",
 			req:  models.UpdateUserRequest{},
 			mockBehavior: func(r *mocks.MockUserRepository) {
 				r.On("GetUserByID", mock.Anything, userID).Return(initialUserDB, nil)
-				r.AssertNotCalled(t, "Update", mock.Anything, mock.Anything, mock.Anything)
+				r.AssertNotCalled(t, "UpdateUser", mock.Anything, mock.Anything, mock.Anything)
 			},
 			expectedError: nil,
 			assertFunc: func(t *testing.T, resp *models.UserResponse) {
@@ -351,7 +351,7 @@ func TestUserService_Update(t *testing.T) {
 				FirstName: ptr("Test"),
 			},
 			mockBehavior: func(r *mocks.MockUserRepository) {
-				r.On("Update", mock.Anything, userID, mock.Anything).Return(nil, modelsRepo.ErrUserNotFound)
+				r.On("UpdateUser", mock.Anything, userID, mock.Anything).Return(nil, modelsRepo.ErrUserNotFound)
 			},
 			expectedError: models.ErrUserNotFound,
 		},
@@ -361,7 +361,7 @@ func TestUserService_Update(t *testing.T) {
 				LastName: ptr("Test"),
 			},
 			mockBehavior: func(r *mocks.MockUserRepository) {
-				r.On("Update", mock.Anything, userID, mock.Anything).Return(nil, unexpectedErr)
+				r.On("UpdateUser", mock.Anything, userID, mock.Anything).Return(nil, unexpectedErr)
 			},
 			expectedError: unexpectedErr,
 		},
@@ -651,7 +651,7 @@ func TestUserService_SyncAdmin(t *testing.T) {
 				r.On("GetPasswordHashByEmail", ctx, adminCfg.Email).
 					Return(nil, modelsRepo.ErrUserNotFound)
 
-				r.On("Create", ctx, mock.MatchedBy(func(u *modelsRepo.UserDB) bool {
+				r.On("CreateUser", ctx, mock.MatchedBy(func(u *modelsRepo.UserDB) bool {
 					return u.Email == adminCfg.Email &&
 						u.Role == string(models.RoleAdmin) &&
 						u.FirstName == "Super" &&
@@ -675,7 +675,7 @@ func TestUserService_SyncAdmin(t *testing.T) {
 						Role:  "user",
 					}, nil)
 
-				r.On("Update", ctx, existingAdminID, mock.MatchedBy(func(fields map[string]any) bool {
+				r.On("UpdateUser", ctx, existingAdminID, mock.MatchedBy(func(fields map[string]any) bool {
 					role, roleOk := fields["role"]
 					hash, hashOk := fields["password_hash"]
 
@@ -696,23 +696,23 @@ func TestUserService_SyncAdmin(t *testing.T) {
 			expectedError: unexpectedErr,
 		},
 		{
-			name: "Failure: Create Error",
+			name: "Failure: CreateUser Error",
 			mockBehavior: func(r *mocks.MockUserRepository) {
 				r.On("GetPasswordHashByEmail", ctx, adminCfg.Email).
 					Return(nil, modelsRepo.ErrUserNotFound)
 
-				r.On("Create", ctx, mock.Anything).
+				r.On("CreateUser", ctx, mock.Anything).
 					Return(nil, unexpectedErr)
 			},
 			expectedError: unexpectedErr,
 		},
 		{
-			name: "Failure: Update Error",
+			name: "Failure: UpdateUser Error",
 			mockBehavior: func(r *mocks.MockUserRepository) {
 				r.On("GetPasswordHashByEmail", ctx, adminCfg.Email).
 					Return(&modelsRepo.UserDB{ID: existingAdminID}, nil)
 
-				r.On("Update", ctx, existingAdminID, mock.Anything).
+				r.On("UpdateUser", ctx, existingAdminID, mock.Anything).
 					Return(nil, unexpectedErr)
 			},
 			expectedError: unexpectedErr,

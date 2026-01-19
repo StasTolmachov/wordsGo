@@ -15,3 +15,8 @@ type DictionaryDB struct {
 	PastParticiplePlural   string    `db:"past_participle_plural"`
 	Synonyms               string    `db:"synonyms"`
 }
+
+type WordsDBWithTotal struct {
+	DictionaryDB
+	Total uint64 `json:"total"`
+}

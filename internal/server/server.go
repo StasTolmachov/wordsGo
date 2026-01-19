@@ -45,7 +45,7 @@ func Run(cfg config.Config) {
 		// Решите, нужно ли падать (log.Fatal) или просто логировать ошибку
 	}
 
-	userHandler := handlers.NewHandler(userService)
+	userHandler := handlers.NewHandler(userService, dictionaryService)
 
 	router := handlers.RegisterRoutes(userHandler, cfg.JWT.Secret)
 

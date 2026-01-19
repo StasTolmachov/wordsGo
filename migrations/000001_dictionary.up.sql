@@ -7,10 +7,10 @@ create table dictionary (
     transcription text,
     pos varchar(100),
     level varchar(100),
-    PastSimpleSingular varchar(100),
-    PastSimplePlural varchar(100),
-    PastParticipleSingular varchar(100),
-    PastParticiplePlural varchar(100),
+    past_simple_singular varchar(100),
+    past_simple_plural varchar(100),
+    past_participle_singular varchar(100),
+    past_participle_plural varchar(100),
     Synonyms varchar(1000)
 );
 
@@ -46,3 +46,4 @@ create table user_progress (
 );
 
 create index idx_user_progress on user_progress(user_id, is_learned, correct_streak, last_seen);
+CREATE UNIQUE INDEX idx_user_word_unique ON user_progress(user_id, word_id);

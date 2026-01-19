@@ -30,3 +30,26 @@ func ToDictionaryDB(word DictionaryWord) modelsDB.DictionaryDB {
 		Synonyms:               word.Synonyms,
 	}
 }
+
+func FromDictionaryDB(word *modelsDB.DictionaryDB) *DictionaryWord {
+	return &DictionaryWord{
+		Original:               word.Original,
+		Translation:            word.Translation,
+		Transcription:          word.Transcription,
+		Pos:                    word.Pos,
+		Level:                  word.Level,
+		PastSimpleSingular:     word.PastSimpleSingular,
+		PastSimplePlural:       word.PastSimplePlural,
+		PastParticipleSingular: word.PastParticipleSingular,
+		PastParticiplePlural:   word.PastParticiplePlural,
+		Synonyms:               word.Synonyms,
+	}
+}
+
+type ListOfWordsResponse struct {
+	Page  uint64            `json:"page"`
+	Limit uint64            `json:"limit"`
+	Total uint64            `json:"total"`
+	Pages uint64            `json:"pages"`
+	Data  []*DictionaryWord `json:"data"`
+}

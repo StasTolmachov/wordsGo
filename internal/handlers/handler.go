@@ -21,13 +21,15 @@ import (
 
 type Handler struct {
 	userService service.UserService
+	dict        service.DictionaryService
 }
 
 const ctxWithTimeout time.Duration = time.Second * 5
 
-func NewHandler(us service.UserService) *Handler {
+func NewHandler(us service.UserService, ds service.DictionaryService) *Handler {
 	return &Handler{
 		userService: us,
+		dict:        ds,
 	}
 }
 
@@ -39,7 +41,7 @@ func RegisterRoutes(h *Handler, jwtSecret string) *chi.Mux {
 
 	r.Route("/api/v1/wordsGo", func(r chi.Router) {
 
-		r.Post("/users", h.Create)
+		r.Post("/users", h.CreateUser)
 		r.Post("/login", h.Login)
 		r.Get("/users/{id}", h.GetUserByID)
 		r.Get("/users", h.GetUsers)
@@ -48,8 +50,13 @@ func RegisterRoutes(h *Handler, jwtSecret string) *chi.Mux {
 			//r.Use(middleware.BasicAuthMiddleware(h.userService.Authenticate))
 			r.Use(middleware.AuthMidleware(jwtSecret))
 
-			r.Put("/users/{id}", h.Update)
-			r.Delete("/users/{id}", h.Delete)
+			r.Put("/users/{id}", h.UpdateUser)
+			r.Delete("/users/{id}", h.DeleteUser)
+			r.Get("/words", h.GetWords)
+			r.Post("/addWords", h.AddWords)
+
+			r.Get("/dictionary/search", h.SearchDictionary) // Поиск: GET /api/v1/wordsGo/dictionary/search?q=hel
+			r.Post("/users/words", h.AddWordToLearning)     // Добавление: POST /api/v1/wordsGo/users/words body:{"word_id":"..."}
 
 		})
 	})
@@ -90,8 +97,8 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	JSONResponse(w, http.StatusOK, models.LoginResponse{Token: token})
 }
 
-// Create creates a new user
-// @Summary Create a new user
+// CreateUser creates a new user
+// @Summary CreateUser a new user
 // @Description Register a new user in the system
 // @Tags users
 // @Accept json
@@ -102,7 +109,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 // @Failure 409 {object} handlers.JSONError "User already exists"
 // @Failure 500 {object} handlers.JSONError "Internal server error"
 // @Router /users [post]
-func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	var req models.CreateUserRequest
 
@@ -234,9 +241,9 @@ func (h *Handler) GetUsers(w http.ResponseWriter, r *http.Request) {
 	JSONResponse(w, http.StatusOK, users)
 }
 
-// Delete User delete by ID
-// @Summary Delete user by ID
-// @Description Delete user by ID from DB
+// DeleteUser User delete by ID
+// @Summary DeleteUser user by ID
+// @Description DeleteUser user by ID from DB
 // @Tags users
 // @Accept json
 // @Produce json
@@ -247,7 +254,7 @@ func (h *Handler) GetUsers(w http.ResponseWriter, r *http.Request) {
 // @Failure 403 {object} handlers.JSONError "You can delete only your own account"
 // @Failure 500 {object} handlers.JSONError "Failed to delete user"
 // @Router /users/{id} [delete]
-func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	targetID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
 		WriteError(w, http.StatusBadRequest, "Invalid user ID")
@@ -277,9 +284,9 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	JSONResponse(w, http.StatusOK, nil)
 }
 
-// Update User update by ID
-// @Summary Update user by ID
-// @Description Update user by ID into DB
+// UpdateUser User update by ID
+// @Summary UpdateUser user by ID
+// @Description UpdateUser user by ID into DB
 // @Tags users
 // @Accept json
 // @Produce json
@@ -291,7 +298,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 // @Failure 403 {object} handlers.JSONError "You can delete only your own account"
 // @Failure 500 {object} handlers.JSONError "Failed to delete user"
 // @Router /users/{id} [put]
-func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -338,4 +345,120 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	JSONResponse(w, http.StatusOK, updatedUser)
+}
+
+func (h *Handler) GetWords(w http.ResponseWriter, r *http.Request) {
+	// 1. Извлекаем юзера из контекста
+	user, ok := r.Context().Value(middleware.UserCtxKey{}).(*models.User)
+	if !ok {
+		WriteError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	var (
+		limit uint64 = 10
+		page  uint64 = 1
+	)
+
+	if s := r.URL.Query().Get("limit"); s != "" {
+		l, err := strconv.ParseUint(s, 10, 64)
+		if err != nil {
+			WriteError(w, http.StatusBadRequest, "Invalid limit")
+			return
+		}
+		limit = l
+	}
+
+	if s := r.URL.Query().Get("page"); s != "" {
+		p, err := strconv.ParseUint(s, 10, 64)
+		if err != nil {
+			WriteError(w, http.StatusBadRequest, "Invalid page")
+			return
+		}
+		page = p
+	}
+
+	order := r.URL.Query().Get("order")
+	if order != "asc" {
+		order = "desc"
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), ctxWithTimeout)
+	defer cancel()
+
+	words, err := h.dict.GetWords(ctx, user.ID, limit, page, order)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "Failed to get words")
+		slogger.Log.ErrorContext(ctx, "Failed to get words", "err", err)
+		return
+	}
+	JSONResponse(w, http.StatusOK, words)
+}
+
+func (h *Handler) AddWords(w http.ResponseWriter, r *http.Request) {
+	var req models.DictionaryWord
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		WriteError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), ctxWithTimeout)
+	defer cancel()
+	slogger.Log.DebugContext(ctx, "Adding words", "req", req)
+
+	err := h.dict.AddWords(ctx, req)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "Failed to add words")
+		slogger.Log.ErrorContext(ctx, "Failed to add words", "err", err)
+		return
+	}
+	JSONResponse(w, http.StatusOK, nil) //todo
+}
+
+func (h *Handler) SearchDictionary(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query().Get("q")
+	if query == "" {
+		JSONResponse(w, http.StatusOK, []models.DictionaryWord{})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), ctxWithTimeout)
+	defer cancel()
+
+	words, err := h.dict.SearchWords(ctx, query)
+	if err != nil {
+		slogger.Log.ErrorContext(ctx, "Search failed", "err", err)
+		WriteError(w, http.StatusInternalServerError, "Search failed")
+		return
+	}
+
+	JSONResponse(w, http.StatusOK, words)
+}
+
+type AddToLearningRequest struct {
+	WordID string `json:"word_id"`
+}
+
+func (h *Handler) AddWordToLearning(w http.ResponseWriter, r *http.Request) {
+	var req AddToLearningRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		WriteError(w, http.StatusBadRequest, "Invalid body")
+		return
+	}
+
+	// Получаем ID текущего юзера из контекста (AuthMiddleware)
+	user := r.Context().Value(middleware.UserCtxKey{}).(*models.User)
+
+	ctx, cancel := context.WithTimeout(r.Context(), ctxWithTimeout)
+	defer cancel()
+
+	err := h.dict.AddWordToLearning(ctx, user.ID, req.WordID)
+	if err != nil {
+		slogger.Log.ErrorContext(ctx, "Failed to add word to learning", "err", err)
+		// Упрощенно 500, но лучше проверять на дубликаты
+		WriteError(w, http.StatusInternalServerError, "Failed to add word")
+		return
+	}
+
+	JSONResponse(w, http.StatusCreated, map[string]string{"status": "added"})
 }

@@ -161,7 +161,7 @@ func (s *UserRepoSuite) TestUpdateUser() {
 	createdUser, err := s.repo.Create(context.Background(), userToUpdate)
 	s.Require().NoError(err)
 
-	s.Run("Success: Update fields", func() {
+	s.Run("Success: UpdateUser fields", func() {
 		time.Sleep(time.Millisecond * 100)
 
 		newEmail := "updated_email@example.com"
@@ -186,7 +186,7 @@ func (s *UserRepoSuite) TestUpdateUser() {
 		s.Equal(newEmail, dbUser.Email)
 	})
 
-	s.Run("Failure: Update forbidden column", func() {
+	s.Run("Failure: UpdateUser forbidden column", func() {
 		fields := map[string]any{
 			"id": "some-new-id",
 		}

@@ -200,7 +200,7 @@ func (s *userService) Update(ctx context.Context, id uuid.UUID, req models.Updat
 		if errors.Is(err, modelsRepo.ErrUserNotFound) {
 			return nil, models.ErrUserNotFound
 		}
-		return nil, fmt.Errorf("failed to update user s.repo.Update: %w", err)
+		return nil, fmt.Errorf("failed to update user s.repo.UpdateUser: %w", err)
 	}
 	return models.FromDBToUserResponse(updatedUser), nil
 }
