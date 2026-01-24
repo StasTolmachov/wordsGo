@@ -90,6 +90,11 @@ button:disabled {
     cursor: not-allowed;
 }
 
+.primary-btn {
+    background-color: var(--success-color); /* Make primary action green/distinct */
+    font-weight: bold;
+}
+
 .danger-btn {
     background-color: var(--error-color);
 }

@@ -250,16 +250,25 @@ function openEditModal(word) {
     document.getElementById('edit-synonyms').value = word.custom_synonyms || word.synonyms || '';
 
     editWordModal.classList.remove('hidden');
+    // Focus the submit button (Add to Learning)
+    setTimeout(() => document.getElementById('modal-submit-btn').focus(), 50);
 }
 
 function closeEditModal() {
     editWordModal.classList.add('hidden');
+    // Restore focus to search input if appropriate
+    document.getElementById('search-input').focus();
 }
 
 closeModalSpan.onclick = closeEditModal;
 cancelModalBtn.onclick = closeEditModal;
 window.onclick = (event) => {
     if (event.target == editWordModal) {
+        closeEditModal();
+    }
+};
+window.onkeydown = (event) => {
+    if (event.key === 'Escape' && !editWordModal.classList.contains('hidden')) {
         closeEditModal();
     }
 };
