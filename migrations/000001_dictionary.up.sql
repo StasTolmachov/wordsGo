@@ -39,7 +39,7 @@ create table user_progress (
     is_learned boolean,
     correct_streak integer,
     total_mistakes integer,
-    DifficultyLevel float,
+    Difficulty_Level float,
     last_seen timestamp,
     constraint fk_user foreign key (user_id) references users(id) on delete cascade,
     constraint fk_word foreign key (word_id) references dictionary(id) on delete cascade

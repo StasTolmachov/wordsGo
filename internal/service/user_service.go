@@ -169,7 +169,7 @@ func (s *userService) Update(ctx context.Context, id uuid.UUID, req models.Updat
 	var err error
 
 	if req.Email != nil {
-		fields["email"] = req.Email
+		fields["email"] = *req.Email
 	}
 	if req.Password != nil {
 		fields["password_hash"], err = utils.HashPassword(*req.Password)
@@ -178,10 +178,10 @@ func (s *userService) Update(ctx context.Context, id uuid.UUID, req models.Updat
 		}
 	}
 	if req.FirstName != nil {
-		fields["first_name"] = req.FirstName
+		fields["first_name"] = *req.FirstName
 	}
 	if req.LastName != nil {
-		fields["last_name"] = req.LastName
+		fields["last_name"] = *req.LastName
 	}
 
 	if len(fields) == 0 {
@@ -250,11 +250,7 @@ func PermissionCheck(requester *models.User, target *modelsRepo.UserDB) bool {
 		return true
 	}
 	if requester.Role == models.RoleModerator {
-
-		if target.Role != string(models.RoleUser) {
-			return false
-		}
-		return true
+		return target.Role == string(models.RoleUser)
 	}
 	return false
 }

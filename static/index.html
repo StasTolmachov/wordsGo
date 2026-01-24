@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>wordsGo - Learn New Words</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>wordsGo</h1>
+            <nav id="main-nav" class="hidden">
+                <button id="nav-search">Search</button>
+                <button id="nav-words">My Words</button>
+                <button id="nav-lesson">Start Lesson</button>
+                <button id="nav-profile">Profile</button>
+                <button id="logout-btn">Logout</button>
+            </nav>
+        </header>
+
+        <main>
+            <!-- Auth Section -->
+            <section id="auth-section">
+                <div id="login-form-container">
+                    <h2>Login</h2>
+                    <form id="login-form">
+                        <input type="email" id="login-email" placeholder="Email" required>
+                        <input type="password" id="login-password" placeholder="Password" required>
+                        <button type="submit">Login</button>
+                    </form>
+                    <p>Don't have an account? <button id="show-register">Register</button></p>
+                </div>
+
+                <div id="register-form-container" class="hidden">
+                    <h2>Register</h2>
+                    <form id="register-form">
+                        <input type="text" id="reg-firstname" placeholder="First Name" required>
+                        <input type="text" id="reg-lastname" placeholder="Last Name" required>
+                        <input type="email" id="reg-email" placeholder="Email" required>
+                        <input type="password" id="reg-password" placeholder="Password" required>
+                        <div class="password-requirements">
+                            <small>Password must contain:</small>
+                            <ul>
+                                <li id="req-length">At least 8 characters</li>
+                                <li id="req-upper">One uppercase letter</li>
+                                <li id="req-lower">One lowercase letter</li>
+                                <li id="req-digit">One digit</li>
+                                <li id="req-special">One special character</li>
+                            </ul>
+                        </div>
+                        <input type="text" id="reg-sourcelang" placeholder="Source Language (e.g. en)" required>
+                        <input type="text" id="reg-targetlang" placeholder="Target Language (e.g. ru)" required>
+                        <button type="submit">Register</button>
+                    </form>
+                    <p>Already have an account? <button id="show-login">Login</button></p>
+                </div>
+            </section>
+
+            <!-- Dashboard Section -->
+            <section id="dashboard" class="hidden">
+                <!-- Search -->
+                <div id="search-container">
+                    <div id="bulk-add-container">
+                        <h3>Add Words by Level</h3>
+                        <div class="level-buttons">
+                            <button class="level-btn" data-level="A1">A1</button>
+                            <button class="level-btn" data-level="A2">A2</button>
+                            <button class="level-btn" data-level="B1">B1</button>
+                            <button class="level-btn" data-level="B2">B2</button>
+                            <button class="level-btn" data-level="C1">C1</button>
+                            <button class="level-btn" data-level="C2">C2</button>
+                        </div>
+                    </div>
+
+                    <h2>Search Dictionary</h2>
+
+                    <div class="search-box">
+                        <input type="text" id="search-input" placeholder="Search for a word...">
+                        <button id="search-btn">Search</button>
+                    </div>
+
+                    <div id="search-results"></div>
+                </div>
+
+                <!-- My Words -->
+                <div id="words-container" class="hidden">
+                    <h2>My Learning Words</h2>
+                    <div id="progress-container" class="progress-stats-container"></div>
+                    
+                    <div class="search-box">
+                        <input type="text" id="my-words-search" placeholder="Search my words...">
+                    </div>
+
+                    <div id="words-list"></div>
+                    <div id="words-pagination" class="pagination-controls hidden">
+                        <button id="words-prev">Previous</button>
+                        <span id="words-page-info">Page 1</span>
+                        <button id="words-next">Next</button>
+                    </div>
+                </div>
+
+                <!-- Lesson -->
+                <div id="lesson-container" class="hidden">
+                    <div class="lesson-header">
+                        <h2>Lesson</h2>
+                        <button id="exit-lesson-btn" class="danger-btn">Exit Lesson</button>
+                    </div>
+                    <div id="lesson-content">
+                        <div id="lesson-question"></div>
+                        <div id="lesson-options"></div>
+                        <div id="lesson-feedback"></div>
+                    </div>
+                    <button id="next-question" class="hidden">Next Question</button>
+                </div>
+
+                <!-- Profile -->
+                <div id="profile-container" class="hidden">
+                    <h2>User Profile</h2>
+                    <div id="user-info"></div>
+                    <button id="edit-profile-btn">Edit Profile</button>
+                    <div id="edit-profile-form-container" class="hidden">
+                        <form id="edit-profile-form">
+                            <input type="text" id="edit-firstname" placeholder="First Name">
+                            <input type="text" id="edit-lastname" placeholder="Last Name">
+                            <button type="submit">Update Profile</button>
+                            <button type="button" id="cancel-edit-btn">Cancel</button>
+                        </form>
+                    </div>
+                </div>
+            </section>
+        </main>
+        
+        <!-- Edit Word Modal -->
+        <div id="edit-word-modal" class="modal hidden">
+            <div class="modal-content">
+                <span id="close-modal" class="close">&times;</span>
+                <h2 id="modal-word-title">Edit Word</h2>
+                <form id="edit-word-form">
+                    <input type="hidden" id="edit-word-id">
+                    
+                    <div class="form-group">
+                        <label for="edit-transcription">Transcription:</label>
+                        <input type="text" id="edit-transcription" placeholder="Custom transcription">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit-translation">Translation:</label>
+                        <input type="text" id="edit-translation" placeholder="Custom translation">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit-synonyms">Synonyms:</label>
+                        <input type="text" id="edit-synonyms" placeholder="Custom synonyms">
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="submit" class="primary-btn">Save Changes</button>
+                        <button type="button" id="cancel-modal-btn">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="toast" class="toast hidden"></div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>

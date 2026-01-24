@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -39,6 +42,11 @@ func RegisterRoutes(h *Handler, jwtSecret string) *chi.Mux {
 
 	r.Get("/swagger/*", httpSwagger.WrapHandler)
 
+	// Serve static files
+	workDir, _ := os.Getwd()
+	filesDir := http.Dir(filepath.Join(workDir, "static"))
+	FileServer(r, "/", filesDir)
+
 	r.Route("/api/v1/wordsGo", func(r chi.Router) {
 
 		r.Post("/users", h.CreateUser)
@@ -50,17 +58,41 @@ func RegisterRoutes(h *Handler, jwtSecret string) *chi.Mux {
 			//r.Use(middleware.BasicAuthMiddleware(h.userService.Authenticate))
 			r.Use(middleware.AuthMidleware(jwtSecret))
 
+			r.Get("/users/me", h.GetCurrentUser)
 			r.Put("/users/{id}", h.UpdateUser)
 			r.Delete("/users/{id}", h.DeleteUser)
+
+			//words
 			r.Get("/words", h.GetWords)
-			r.Post("/addWords", h.AddWords)
 
-			r.Get("/dictionary/search", h.SearchDictionary) // Поиск: GET /api/v1/wordsGo/dictionary/search?q=hel
-			r.Post("/users/words", h.AddWordToLearning)     // Добавление: POST /api/v1/wordsGo/users/words body:{"word_id":"..."}
+			r.Get("/dictionary/search", h.SearchDictionary)   // Поиск: GET /api/v1/wordsGo/dictionary/search?q=hel
+			r.Post("/users/words", h.AddWordToLearning)       // Добавление: POST /api/v1/wordsGo/users/words body:{"word_id":"..."}
+			r.Post("/users/words/bulk", h.AddWordsByLevel)    // Массовое добавление: POST /api/v1/wordsGo/users/words/bulk body:{"level":"A1"}
+			r.Patch("/users/words/{id}", h.UpdateWordDetails) // Редактирование: PATCH /api/v1/wordsGo/users/words/{id}
+			r.Delete("/users/words/{id}", h.DeleteWord)
 
+			// Новые роуты для уроков
+			r.Get("/lesson/start", h.StartLesson)
+			r.Post("/lesson/answer", h.SubmitAnswer)
+			r.Post("/lesson/learned/{id}", h.MarkAsLearned)
 		})
 	})
 	return r
+}
+
+func (h *Handler) MarkAsLearned(w http.ResponseWriter, r *http.Request) {
+	wordID := chi.URLParam(r, "id")
+	user := r.Context().Value(middleware.UserCtxKey{}).(*models.User)
+
+	ctx, cancel := context.WithTimeout(r.Context(), ctxWithTimeout)
+	defer cancel()
+
+	if err := h.dict.MarkAsLearned(ctx, user.ID, wordID); err != nil {
+		WriteError(w, http.StatusInternalServerError, "Failed to mark word as learned")
+		return
+	}
+
+	JSONResponse(w, http.StatusOK, map[string]string{"status": "success"})
 }
 
 // Login
@@ -119,7 +151,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Email == "" || req.Password == "" || req.FirstName == "" || req.LastName == "" {
+	if req.Email == "" || req.Password == "" || req.FirstName == "" || req.LastName == "" || req.SourceLang == "" || req.TargetLang == "" {
 		WriteError(w, http.StatusBadRequest, "Fields cannot be empty")
 		return
 	}
@@ -140,12 +172,38 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 			WriteError(w, http.StatusConflict, "User already exists")
 			return
 		}
-		WriteError(w, http.StatusInternalServerError, err.Error())
+		WriteError(w, http.StatusInternalServerError, "Internal server error")
 		slogger.Log.ErrorContext(ctx, "Failed to create user", "err", err)
 		return
 	}
 
 	JSONResponse(w, http.StatusCreated, createdUser)
+}
+
+// GetCurrentUser Get current authenticated user
+// @Summary Get current user
+// @Description Get current authenticated user info
+// @Tags users
+// @Accept json
+// @Produce json
+// @Security BasicAuth
+// @Success 200 {object} models.UserResponse
+// @Failure 401 {object} handlers.JSONError "Unauthorized"
+// @Failure 500 {object} handlers.JSONError "Internal server error"
+// @Router /users/me [get]
+func (h *Handler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value(middleware.UserCtxKey{}).(*models.User)
+
+	ctx, cancel := context.WithTimeout(r.Context(), ctxWithTimeout)
+	defer cancel()
+
+	userResp, err := h.userService.GetUserByID(ctx, user.ID)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "Failed to get user")
+		slogger.Log.ErrorContext(ctx, "Failed to get user", "err", err)
+		return
+	}
+	JSONResponse(w, http.StatusOK, userResp)
 }
 
 // GetUserByID Get User By ID
@@ -383,36 +441,18 @@ func (h *Handler) GetWords(w http.ResponseWriter, r *http.Request) {
 		order = "desc"
 	}
 
+	filter := r.URL.Query().Get("q")
+
 	ctx, cancel := context.WithTimeout(r.Context(), ctxWithTimeout)
 	defer cancel()
 
-	words, err := h.dict.GetWords(ctx, user.ID, limit, page, order)
+	words, err := h.dict.GetWords(ctx, user.ID, filter, limit, page, order)
 	if err != nil {
 		WriteError(w, http.StatusInternalServerError, "Failed to get words")
 		slogger.Log.ErrorContext(ctx, "Failed to get words", "err", err)
 		return
 	}
 	JSONResponse(w, http.StatusOK, words)
-}
-
-func (h *Handler) AddWords(w http.ResponseWriter, r *http.Request) {
-	var req models.DictionaryWord
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		WriteError(w, http.StatusBadRequest, "Invalid request body")
-		return
-	}
-	ctx, cancel := context.WithTimeout(r.Context(), ctxWithTimeout)
-	defer cancel()
-	slogger.Log.DebugContext(ctx, "Adding words", "req", req)
-
-	err := h.dict.AddWords(ctx, req)
-	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "Failed to add words")
-		slogger.Log.ErrorContext(ctx, "Failed to add words", "err", err)
-		return
-	}
-	JSONResponse(w, http.StatusOK, nil) //todo
 }
 
 func (h *Handler) SearchDictionary(w http.ResponseWriter, r *http.Request) {
@@ -439,26 +479,237 @@ type AddToLearningRequest struct {
 	WordID string `json:"word_id"`
 }
 
+// AddWordToLearning godoc
+// @Summary Add word to learning list
+// @Description Adds a word from the dictionary to the user's personal learning list
+// @Tags words
+// @Security BasicAuth
+// @Accept json
+// @Produce json
+// @Param input body AddToLearningRequest true "Word ID"
+// @Success 201 {object} map[string]string "Status"
+// @Failure 400 {object} JSONError "Invalid input"
+// @Failure 500 {object} JSONError "Internal server error"
+// @Router /users/words [post]
 func (h *Handler) AddWordToLearning(w http.ResponseWriter, r *http.Request) {
+	// 1. Декодируем тело запроса
 	var req AddToLearningRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		WriteError(w, http.StatusBadRequest, "Invalid body")
+		WriteError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
-	// Получаем ID текущего юзера из контекста (AuthMiddleware)
-	user := r.Context().Value(middleware.UserCtxKey{}).(*models.User)
+	if req.WordID == "" {
+		WriteError(w, http.StatusBadRequest, "word_id is required")
+		return
+	}
+
+	// 2. Получаем пользователя из контекста (Middleware авторизации)
+	user, ok := r.Context().Value(middleware.UserCtxKey{}).(*models.User)
+	if !ok {
+		WriteError(w, http.StatusUnauthorized, "User not authorized")
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), ctxWithTimeout)
 	defer cancel()
 
+	// 3. Вызываем сервис
 	err := h.dict.AddWordToLearning(ctx, user.ID, req.WordID)
 	if err != nil {
-		slogger.Log.ErrorContext(ctx, "Failed to add word to learning", "err", err)
-		// Упрощенно 500, но лучше проверять на дубликаты
+		slogger.Log.ErrorContext(ctx, "Failed to add word to learning", "err", err, "userID", user.ID, "wordID", req.WordID)
+		// Здесь можно детализировать ошибку (например, если слово не найдено 404),
+		// но для MVP 500 достаточно.
 		WriteError(w, http.StatusInternalServerError, "Failed to add word")
 		return
 	}
 
-	JSONResponse(w, http.StatusCreated, map[string]string{"status": "added"})
+	// 4. Возвращаем успешный ответ
+	JSONResponse(w, http.StatusCreated, map[string]string{
+		"status":  "success",
+		"message": "Word added to learning list",
+	})
+}
+
+type AddBulkRequest struct {
+	Level string `json:"level"`
+}
+
+func (h *Handler) AddWordsByLevel(w http.ResponseWriter, r *http.Request) {
+	var req AddBulkRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		WriteError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if req.Level == "" {
+		WriteError(w, http.StatusBadRequest, "Level is required")
+		return
+	}
+
+	user, ok := r.Context().Value(middleware.UserCtxKey{}).(*models.User)
+	if !ok {
+		WriteError(w, http.StatusUnauthorized, "User not authorized")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), ctxWithTimeout)
+	defer cancel()
+
+	count, err := h.dict.AddWordsByLevel(ctx, user.ID, req.Level)
+	if err != nil {
+		slogger.Log.ErrorContext(ctx, "Failed to bulk add words", "err", err)
+		WriteError(w, http.StatusInternalServerError, "Failed to add words")
+		return
+	}
+
+	JSONResponse(w, http.StatusOK, map[string]interface{}{
+		"status":  "success",
+		"message": "Words added",
+		"count":   count,
+	})
+}
+
+func (h *Handler) UpdateWordDetails(w http.ResponseWriter, r *http.Request) {
+	wordID := chi.URLParam(r, "id")
+	if wordID == "" {
+		WriteError(w, http.StatusBadRequest, "word_id is required")
+		return
+	}
+
+	var req models.UpdateWordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		WriteError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	user, ok := r.Context().Value(middleware.UserCtxKey{}).(*models.User)
+	if !ok {
+		WriteError(w, http.StatusUnauthorized, "User not authorized")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), ctxWithTimeout)
+	defer cancel()
+
+	err := h.dict.UpdateWordDetails(ctx, user.ID, wordID, req)
+	if err != nil {
+		slogger.Log.ErrorContext(ctx, "Failed to update word", "err", err)
+		WriteError(w, http.StatusInternalServerError, "Failed to update word")
+		return
+	}
+
+	JSONResponse(w, http.StatusOK, map[string]string{
+		"status":  "success",
+		"message": "Word updated",
+	})
+}
+
+func (h *Handler) DeleteWord(w http.ResponseWriter, r *http.Request) {
+	wordID := chi.URLParam(r, "id")
+	if wordID == "" {
+		WriteError(w, http.StatusBadRequest, "word_id is required")
+		return
+	}
+
+	user, ok := r.Context().Value(middleware.UserCtxKey{}).(*models.User)
+	if !ok {
+		WriteError(w, http.StatusUnauthorized, "User not authorized")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), ctxWithTimeout)
+	defer cancel()
+
+	err := h.dict.DeleteWordFromLearning(ctx, user.ID, wordID)
+	if err != nil {
+		slogger.Log.ErrorContext(ctx, "Failed to delete word", "err", err)
+		WriteError(w, http.StatusInternalServerError, "Failed to delete word")
+		return
+	}
+
+	JSONResponse(w, http.StatusOK, map[string]string{
+		"status":  "success",
+		"message": "Word deleted from learning list",
+	})
+}
+
+// StartLesson godoc
+// @Summary Start infinite lesson
+// @Description Get a batch of 10 words for the lesson loop
+// @Tags lesson
+// @Security BasicAuth
+// @Produce json
+// @Success 200 {object} models.LessonResponse
+// @Failure 500 {object} JSONError
+// @Router /lesson/start [get]
+func (h *Handler) StartLesson(w http.ResponseWriter, r *http.Request) {
+	// Извлекаем пользователя из контекста (положен middleware)
+	user := r.Context().Value(middleware.UserCtxKey{}).(*models.User)
+
+	lessonResp, err := h.dict.GenerateLesson(r.Context(), user.ID)
+	if err != nil {
+		slogger.Log.ErrorContext(r.Context(), "Failed to generate lesson", "err", err)
+		WriteError(w, http.StatusInternalServerError, "Failed to generate lesson")
+		return
+	}
+
+	JSONResponse(w, http.StatusOK, lessonResp)
+}
+
+// SubmitAnswer godoc
+// @Summary Submit word answer
+// @Description Send answer result to update word difficulty
+// @Tags lesson
+// @Security BasicAuth
+// @Accept json
+// @Produce json
+// @Param input body models.SubmitAnswerRequest true "Answer"
+// @Success 200 {object} models.SubmitAnswerResponse
+// @Failure 400 {object} JSONError
+// @Failure 500 {object} JSONError
+// @Router /lesson/answer [post]
+func (h *Handler) SubmitAnswer(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value(middleware.UserCtxKey{}).(*models.User)
+
+	var req models.SubmitAnswerRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		WriteError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if req.WordID == "" {
+		WriteError(w, http.StatusBadRequest, "word_id is required")
+		return
+	}
+
+	resp, err := h.dict.ProcessAnswer(r.Context(), user.ID, req)
+	if err != nil {
+		slogger.Log.ErrorContext(r.Context(), "Failed to process answer", "err", err)
+		WriteError(w, http.StatusInternalServerError, "Failed to process answer")
+		return
+	}
+
+	JSONResponse(w, http.StatusOK, resp)
+}
+
+// FileServer conveniently sets up a http.FileServer handler to serve
+// static files from a http.FileSystem.
+func FileServer(r chi.Router, path string, root http.FileSystem) {
+	if strings.ContainsAny(path, "{}*") {
+		panic("FileServer does not permit any URL parameters.")
+	}
+
+	if path != "/" && path[len(path)-1] != '/' {
+		r.Get(path, http.RedirectHandler(path+"/", http.StatusMovedPermanently).ServeHTTP)
+		path += "/"
+	}
+	path += "*"
+
+	r.Get(path, func(w http.ResponseWriter, r *http.Request) {
+		rctx := chi.RouteContext(r.Context())
+		pathPrefix := strings.TrimSuffix(rctx.RoutePattern(), "/*")
+		fs := http.StripPrefix(pathPrefix, http.FileServer(root))
+		fs.ServeHTTP(w, r)
+	})
 }

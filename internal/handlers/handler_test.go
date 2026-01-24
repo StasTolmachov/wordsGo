@@ -45,10 +45,12 @@ func TestHandler_Create(t *testing.T) {
 	}
 
 	requestBody := models.CreateUserRequest{
-		Email:     "test@example.com",
-		Password:  "StrongPass1!",
-		FirstName: "John",
-		LastName:  "Doe",
+		Email:      "test@example.com",
+		Password:   "StrongPass1!",
+		FirstName:  "John",
+		LastName:   "Doe",
+		SourceLang: "en",
+		TargetLang: "ru",
 	}
 
 	tests := []struct {
@@ -64,7 +66,7 @@ func TestHandler_Create(t *testing.T) {
 			expectedStatusCode: http.StatusCreated,
 			expectedBodyJSON:   successResponse,
 			mockBehavior: func(s *mocks.MockUserService) {
-				s.On("CreateUser", mock.Anything, requestBody).
+				s.On("Create", mock.Anything, requestBody).
 					Return(&successResponse, nil).Once()
 			},
 		},
@@ -74,7 +76,7 @@ func TestHandler_Create(t *testing.T) {
 			expectedStatusCode: http.StatusConflict,
 			expectedBodyJSON:   ErrorResponse{Error: "User already exists"},
 			mockBehavior: func(s *mocks.MockUserService) {
-				s.On("CreateUser", mock.Anything, requestBody).
+				s.On("Create", mock.Anything, requestBody).
 					Return(nil, models.ErrUserAlreadyExists).Once()
 			},
 		},
@@ -84,31 +86,33 @@ func TestHandler_Create(t *testing.T) {
 			expectedStatusCode: http.StatusBadRequest,
 			expectedBodyJSON:   ErrorResponse{Error: "Invalid request body"},
 			mockBehavior: func(s *mocks.MockUserService) {
-				s.AssertNotCalled(t, "CreateUser", mock.Anything, mock.Anything)
+				s.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
 			},
 		},
 
 		{
 			name: "Failure: Missing Field (Empty Email)",
 			requestBody: models.CreateUserRequest{
-				Email:     "",
-				Password:  "StrongPass1!",
-				FirstName: "John",
-				LastName:  "Doe",
+				Email:      "",
+				Password:   "StrongPass1!",
+				FirstName:  "John",
+				LastName:   "Doe",
+				SourceLang: "en",
+				TargetLang: "ru",
 			},
 			expectedStatusCode: http.StatusBadRequest,
 			expectedBodyJSON:   ErrorResponse{Error: "Fields cannot be empty"},
 			mockBehavior: func(s *mocks.MockUserService) {
-				s.AssertNotCalled(t, "CreateUser", mock.Anything, mock.Anything)
+				s.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
 			},
 		},
 		{
 			name:               "Failure: Internal Service Error",
 			requestBody:        requestBody,
 			expectedStatusCode: http.StatusInternalServerError,
-			expectedBodyJSON:   ErrorResponse{Error: "database connection failed"},
+			expectedBodyJSON:   ErrorResponse{Error: "Internal server error"},
 			mockBehavior: func(s *mocks.MockUserService) {
-				s.On("CreateUser", mock.Anything, requestBody).
+				s.On("Create", mock.Anything, requestBody).
 					Return(nil, errors.New("database connection failed")).Once()
 			},
 		},
@@ -119,7 +123,7 @@ func TestHandler_Create(t *testing.T) {
 			mockService := mocks.NewMockUserService(t)
 			tt.mockBehavior(mockService)
 
-			handler := NewHandler(mockService)
+			handler := NewHandler(mockService, &stubDictionaryService{})
 
 			bodyBytes, err := json.Marshal(tt.requestBody)
 			if err != nil && tt.name != "Failure: Invalid Request Body (Invalid JSON)" {
@@ -226,7 +230,7 @@ func TestHandler_GetUserByID(t *testing.T) {
 			mockService := mocks.NewMockUserService(t)
 			tt.mockBehavior(mockService)
 
-			handler := NewHandler(mockService)
+			handler := NewHandler(mockService, &stubDictionaryService{})
 
 			r := chi.NewRouter()
 			r.Get("/users/{id}", handler.GetUserByID)
@@ -331,7 +335,7 @@ func TestHandler_GetUsers(t *testing.T) {
 			mockService := mocks.NewMockUserService(t)
 			tt.mockBehavior(mockService)
 
-			handler := NewHandler(mockService)
+			handler := NewHandler(mockService, &stubDictionaryService{})
 
 			req := httptest.NewRequest(http.MethodGet, "/api/v1/users"+tt.queryString, nil)
 			rr := httptest.NewRecorder()
@@ -376,7 +380,7 @@ func TestHandler_Delete(t *testing.T) {
 			expectedStatusCode: http.StatusOK,
 			expectedBody:       nil,
 			mockBehavior: func(s *mocks.MockUserService) {
-				s.On("DeleteUser", mock.Anything, authUser, authUserID).
+				s.On("Delete", mock.Anything, authUser, authUserID).
 					Return(nil).Once()
 			},
 		},
@@ -387,7 +391,7 @@ func TestHandler_Delete(t *testing.T) {
 			expectedStatusCode: http.StatusNotFound,
 			expectedBody:       ErrorResponse{Error: "User not found"},
 			mockBehavior: func(s *mocks.MockUserService) {
-				s.On("DeleteUser", mock.Anything, authUser, otherID).Return(models.ErrUserNotFound).Once()
+				s.On("Delete", mock.Anything, authUser, otherID).Return(models.ErrUserNotFound).Once()
 			},
 		},
 		{
@@ -397,7 +401,7 @@ func TestHandler_Delete(t *testing.T) {
 			expectedStatusCode: http.StatusForbidden,
 			expectedBody:       ErrorResponse{Error: "Permission denied"},
 			mockBehavior: func(s *mocks.MockUserService) {
-				s.On("DeleteUser", mock.Anything, authUser, otherID).Return(models.ErrPermissionDenied).Once()
+				s.On("Delete", mock.Anything, authUser, otherID).Return(models.ErrPermissionDenied).Once()
 			},
 		},
 		{
@@ -407,7 +411,7 @@ func TestHandler_Delete(t *testing.T) {
 			expectedStatusCode: http.StatusBadRequest,
 			expectedBody:       ErrorResponse{Error: "Invalid user ID"},
 			mockBehavior: func(s *mocks.MockUserService) {
-				s.AssertNotCalled(t, "DeleteUser", mock.Anything, mock.Anything, mock.Anything)
+				s.AssertNotCalled(t, "Delete", mock.Anything, mock.Anything, mock.Anything)
 			},
 		},
 		{
@@ -417,7 +421,7 @@ func TestHandler_Delete(t *testing.T) {
 			expectedStatusCode: http.StatusInternalServerError,
 			expectedBody:       ErrorResponse{Error: "Failed to delete user"},
 			mockBehavior: func(s *mocks.MockUserService) {
-				s.On("DeleteUser", mock.Anything, authUser, authUserID).
+				s.On("Delete", mock.Anything, authUser, authUserID).
 					Return(errors.New("db connection lost")).Once()
 			},
 		},
@@ -428,7 +432,7 @@ func TestHandler_Delete(t *testing.T) {
 			mockService := mocks.NewMockUserService(t)
 			tt.mockBehavior(mockService)
 
-			handler := NewHandler(mockService)
+			handler := NewHandler(mockService, &stubDictionaryService{})
 
 			r := chi.NewRouter()
 			r.Delete("/users/{id}", handler.DeleteUser)
@@ -492,7 +496,7 @@ func TestHandler_Update(t *testing.T) {
 			expectedStatusCode: http.StatusOK,
 			expectedBody:       updatedResponse,
 			mockBehavior: func(s *mocks.MockUserService) {
-				s.On("UpdateUser", mock.Anything, myID, models.UpdateUserRequest{
+				s.On("Update", mock.Anything, myID, models.UpdateUserRequest{
 					Email: strPtr("new@email.com"),
 				}).Return(&updatedResponse, nil).Once()
 			},
@@ -507,7 +511,7 @@ func TestHandler_Update(t *testing.T) {
 			expectedStatusCode: http.StatusForbidden,
 			expectedBody:       ErrorResponse{Error: "You can update only your own account"},
 			mockBehavior: func(s *mocks.MockUserService) {
-				s.AssertNotCalled(t, "UpdateUser", mock.Anything, mock.Anything, mock.Anything)
+				s.AssertNotCalled(t, "Update", mock.Anything, mock.Anything, mock.Anything)
 			},
 		},
 		{
@@ -520,7 +524,7 @@ func TestHandler_Update(t *testing.T) {
 			expectedStatusCode: http.StatusBadRequest,
 			expectedBody:       ErrorResponse{Error: "password must be at least 8 characters long"},
 			mockBehavior: func(s *mocks.MockUserService) {
-				s.AssertNotCalled(t, "UpdateUser", mock.Anything, mock.Anything, mock.Anything)
+				s.AssertNotCalled(t, "Update", mock.Anything, mock.Anything, mock.Anything)
 			},
 		},
 		{
@@ -531,7 +535,7 @@ func TestHandler_Update(t *testing.T) {
 			expectedStatusCode: http.StatusBadRequest,
 			expectedBody:       ErrorResponse{Error: "Invalid request body"},
 			mockBehavior: func(s *mocks.MockUserService) {
-				s.AssertNotCalled(t, "UpdateUser", mock.Anything, mock.Anything, mock.Anything)
+				s.AssertNotCalled(t, "Update", mock.Anything, mock.Anything, mock.Anything)
 			},
 		},
 		{
@@ -544,7 +548,7 @@ func TestHandler_Update(t *testing.T) {
 			expectedStatusCode: http.StatusInternalServerError,
 			expectedBody:       ErrorResponse{Error: "Failed to update user"},
 			mockBehavior: func(s *mocks.MockUserService) {
-				s.On("UpdateUser", mock.Anything, myID, mock.Anything).
+				s.On("Update", mock.Anything, myID, mock.Anything).
 					Return(nil, errors.New("db error")).Once()
 			},
 		},
@@ -555,7 +559,7 @@ func TestHandler_Update(t *testing.T) {
 			mockService := mocks.NewMockUserService(t)
 			tt.mockBehavior(mockService)
 
-			handler := NewHandler(mockService)
+			handler := NewHandler(mockService, &stubDictionaryService{})
 
 			r := chi.NewRouter()
 			r.Put("/users/{id}", handler.UpdateUser)
@@ -655,7 +659,7 @@ func TestHandler_Login(t *testing.T) {
 			mockService := mocks.NewMockUserService(t)
 			tt.mockBehavior(mockService)
 
-			handler := NewHandler(mockService)
+			handler := NewHandler(mockService, &stubDictionaryService{})
 
 			var reqBodyReader *bytes.Reader
 			if s, ok := tt.requestBody.(string); ok {

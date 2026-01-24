@@ -35,7 +35,7 @@ func (r *UserRepo) Create(ctx context.Context, req *modelsDB.UserDB) (*modelsDB.
 		insert into users 
     	(email, password_hash, first_name, last_name, role, source_lang, target_lang)
 		values ($1, $2, $3, $4, $5, $6, $7)
-		returning id, email, first_name, last_name, role, created_at, updated_at`
+		returning id, email, first_name, last_name, role, source_lang, target_lang, created_at, updated_at`
 
 	var res modelsDB.UserDB
 	err := r.db.db.QueryRowxContext(ctx, query,
@@ -71,7 +71,7 @@ func (r *UserRepo) GetPasswordHashByEmail(ctx context.Context, email string) (*m
 }
 
 func (r *UserRepo) GetUserByID(ctx context.Context, id uuid.UUID) (*modelsDB.UserDB, error) {
-	query := `select id, email, first_name, last_name, role, created_at, updated_at from users where id = $1 and deleted_at is null`
+	query := `select id, email, first_name, last_name, role, source_lang, target_lang, created_at, updated_at from users where id = $1 and deleted_at is null`
 	var userModel modelsDB.UserDB
 	err := r.db.db.QueryRowxContext(ctx, query, id).StructScan(&userModel)
 	if err != nil {
@@ -117,7 +117,7 @@ func (r *UserRepo) Update(ctx context.Context, id uuid.UUID, fields map[string]a
        UPDATE users
        SET %s
        WHERE id = $%d
-       RETURNING id, email, password_hash, first_name, last_name, role, created_at, updated_at
+       RETURNING id, email, password_hash, first_name, last_name, role, source_lang, target_lang, created_at, updated_at
    `, strings.Join(setParts, ", "), i+1)
 
 	var updatedUser modelsDB.UserDB
@@ -137,7 +137,7 @@ func (r *UserRepo) GetUsers(ctx context.Context, order string, pagination models
 	if strings.ToUpper(order) == "ASC" {
 		sortOrder = "ASC"
 	}
-	query := fmt.Sprintf(`select id, email, first_name, last_name, role, created_at, updated_at, count(id) over() as total from users
+	query := fmt.Sprintf(`select id, email, first_name, last_name, role, source_lang, target_lang, created_at, updated_at, count(id) over() as total from users
                                                                where deleted_at is null
                                                                order by created_at %s
                                                                limit $1 offset $2`, sortOrder)

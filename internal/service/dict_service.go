@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -16,10 +18,15 @@ import (
 
 type DictionaryService interface {
 	LoadDictionary(ctx context.Context, path string) error
-	GetWords(ctx context.Context, userID uuid.UUID, limit, page uint64, order string) (*models.ListOfWordsResponse, error)
-	AddWords(ctx context.Context, word models.DictionaryWord) error
+	GetWords(ctx context.Context, userID uuid.UUID, filter string, limit, page uint64, order string) (*models.ListOfWordsResponse, error)
 	SearchWords(ctx context.Context, query string) ([]*models.DictionaryWord, error)
 	AddWordToLearning(ctx context.Context, userID uuid.UUID, wordIDStr string) error
+	AddWordsByLevel(ctx context.Context, userID uuid.UUID, level string) (int64, error)
+	DeleteWordFromLearning(ctx context.Context, userID uuid.UUID, wordIDStr string) error
+	UpdateWordDetails(ctx context.Context, userID uuid.UUID, wordIDStr string, req models.UpdateWordRequest) error
+	GenerateLesson(ctx context.Context, userID uuid.UUID) (*models.LessonResponse, error)
+	ProcessAnswer(ctx context.Context, userID uuid.UUID, req models.SubmitAnswerRequest) (*models.SubmitAnswerResponse, error)
+	MarkAsLearned(ctx context.Context, userID uuid.UUID, wordIDStr string) error
 }
 
 type dictionaryService struct {
@@ -70,7 +77,7 @@ func (s *dictionaryService) LoadDictionary(ctx context.Context, path string) err
 	return nil
 }
 
-func (s *dictionaryService) GetWords(ctx context.Context, userID uuid.UUID, limit, page uint64, order string) (*models.ListOfWordsResponse, error) {
+func (s *dictionaryService) GetWords(ctx context.Context, userID uuid.UUID, filter string, limit, page uint64, order string) (*models.ListOfWordsResponse, error) {
 
 	if limit == 0 {
 		limit = 10
@@ -84,14 +91,25 @@ func (s *dictionaryService) GetWords(ctx context.Context, userID uuid.UUID, limi
 		Limit:  limit,
 		Offset: offset,
 	}
-	wordsDB, total, err := s.repo.GetWords(ctx, userID, order, *pagination)
+	wordsDB, total, err := s.repo.GetWords(ctx, userID, filter, order, *pagination)
 	if err != nil {
 		return nil, err
 	}
 
-	wordsResponse := make([]*models.DictionaryWord, len(wordsDB))
+	wordsResponse := make([]*models.UserWord, len(wordsDB))
 	for i, wordModel := range wordsDB {
-		wordsResponse[i] = models.FromDictionaryDB(&wordModel)
+		baseWord := models.FromDictionaryDB(&wordModel.DictionaryDB)
+		wordsResponse[i] = &models.UserWord{
+			DictionaryWord:      *baseWord,
+			IsLearned:           wordModel.IsLearned,
+			CorrectStreak:       wordModel.CorrectStreak,
+			TotalMistakes:       wordModel.TotalMistakes,
+			DifficultyLevel:     wordModel.DifficultyLevel,
+			LastSeen:            wordModel.LastSeen.Format(time.RFC3339),
+			CustomTranslation:   wordModel.CustomTranslation,
+			CustomTranscription: wordModel.CustomTranscription,
+			CustomSynonyms:      wordModel.CustomSynonyms,
+		}
 	}
 
 	pages := (total + limit - 1) / limit
@@ -104,12 +122,15 @@ func (s *dictionaryService) GetWords(ctx context.Context, userID uuid.UUID, limi
 		Data:  wordsResponse,
 	}
 
+	byLevel, totalProgress, err := s.repo.GetProgressStats(ctx, userID)
+	if err == nil {
+		resp.Progress = models.ProgressStats{
+			Total:   totalProgress,
+			ByLevel: byLevel,
+		}
+	}
+
 	return resp, nil
-}
-
-func (s *dictionaryService) AddWords(ctx context.Context, word models.DictionaryWord) error {
-	return nil
-
 }
 
 func (s *dictionaryService) SearchWords(ctx context.Context, query string) ([]*models.DictionaryWord, error) {
@@ -126,17 +147,222 @@ func (s *dictionaryService) SearchWords(ctx context.Context, query string) ([]*m
 	return result, nil
 }
 func (s *dictionaryService) AddWordToLearning(ctx context.Context, userID uuid.UUID, wordIDStr string) error {
+	// 1. Валидация UUID
 	wordID, err := uuid.Parse(wordIDStr)
 	if err != nil {
-		return fmt.Errorf("invalid word id: %w", err)
+		// Если не UUID, пробуем найти слово по 'original' и получить его ID
+		slogger.Log.DebugContext(ctx, "wordID is not a UUID, searching by original", "word", wordIDStr)
+		words, searchErr := s.repo.SearchByOriginal(ctx, wordIDStr)
+		if searchErr != nil || len(words) == 0 {
+			return fmt.Errorf("invalid word id format: %w", err)
+		}
+		// Берем первое совпадение
+		wordID = words[0].ID
 	}
 
-	// Тут можно добавить проверку, существует ли слово в словаре, если нет внешних ключей (но у вас они есть).
-
+	// 2. Вызов репозитория
+	// Примечание: Можно предварительно проверить существование слова в таблице dictionary,
+	// но наличие внешнего ключа (Foreign Key) в БД и так выдаст ошибку, если слова нет.
 	err = s.repo.AddWordToUser(ctx, userID, wordID)
 	if err != nil {
-		// Тут можно обработать ошибку дубликата (код 23505 в Postgres), если нужно сообщить юзеру "уже добавлено"
-		return fmt.Errorf("failed to add word to user: %w", err)
+		return fmt.Errorf("failed to add word to user progress: %w", err)
+	}
+
+	return nil
+}
+
+func (s *dictionaryService) AddWordsByLevel(ctx context.Context, userID uuid.UUID, level string) (int64, error) {
+	count, err := s.repo.AddWordsByLevel(ctx, userID, level)
+	if err != nil {
+		return 0, fmt.Errorf("failed to bulk add words: %w", err)
+	}
+	return count, nil
+}
+
+func (s *dictionaryService) DeleteWordFromLearning(ctx context.Context, userID uuid.UUID, wordIDStr string) error {
+	wordID, err := uuid.Parse(wordIDStr)
+	if err != nil {
+		return fmt.Errorf("invalid word id format: %w", err)
+	}
+
+	err = s.repo.DeleteUserProgress(ctx, userID, wordID)
+	if err != nil {
+		return fmt.Errorf("failed to delete word from user progress: %w", err)
 	}
 	return nil
+}
+
+func (s *dictionaryService) UpdateWordDetails(ctx context.Context, userID uuid.UUID, wordIDStr string, req models.UpdateWordRequest) error {
+	wordID, err := uuid.Parse(wordIDStr)
+	if err != nil {
+		return fmt.Errorf("invalid word id format: %w", err)
+	}
+
+	// Prepare the update model
+	// We use ON CONFLICT DO UPDATE, so we just need to pass the new values.
+	// If fields are nil, they will remain nil in the DB if we don't handle them carefully.
+	// However, usually we want to set them to whatever the user passed (including nil if they cleared it).
+	// But our DB helper uses NamedExec. To update only specific fields without overwriting others with zero values
+	// is tricky with just one struct.
+	// Simplify: We assume the user sends the full state they want for these custom fields.
+
+	p := &modelsDB.UserProgressDB{
+		UserID:              userID,
+		WordID:              wordID,
+		CustomTranslation:   req.Translation,
+		CustomTranscription: req.Transcription,
+		CustomSynonyms:      req.Synonyms,
+		LastSeen:            time.Now(),
+	}
+
+	// Note: SaveUserProgress was for learning stats. UpdateUserWordDetails is for content.
+	// They share the same table but update different columns (mostly).
+	// To be safe and avoid overwriting stats with zeros if the row exists,
+	// UpdateUserWordDetails query must ONLY update the custom columns.
+	// Let's ensure the repo method does exactly that.
+	// Checked repo: It updates custom_* columns and last_seen. Perfect.
+
+	err = s.repo.UpdateUserWordDetails(ctx, p)
+	if err != nil {
+		return fmt.Errorf("failed to update word details: %w", err)
+	}
+	return nil
+}
+
+// GenerateLesson создает набор слов для "бесконечного" урока.
+func (s *dictionaryService) GenerateLesson(ctx context.Context, userID uuid.UUID) (*models.LessonResponse, error) {
+	// 1. Пытаемся получить "умный" набор
+	wordsDB, err := s.repo.GetLessonWords(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	targetCount := 10
+
+	// 2. Если слов меньше 10 (например, у новичка нет "сложных" слов), добираем случайными из словаря
+	if len(wordsDB) < targetCount {
+		excludeIDs := make([]uuid.UUID, 0, len(wordsDB))
+		for _, w := range wordsDB {
+			excludeIDs = append(excludeIDs, w.ID)
+		}
+
+		// Если список пустой (база пустая), нужно избежать ошибки sqlx.In с пустым слайсом
+		if len(excludeIDs) == 0 {
+			// Добавим несуществующий UUID, чтобы запрос с NOT IN сработал корректно
+			excludeIDs = append(excludeIDs, uuid.Nil)
+		}
+
+		needed := targetCount - len(wordsDB)
+		randomWords, err := s.repo.GetRandomWords(ctx, userID, needed, excludeIDs)
+		if err == nil {
+			wordsDB = append(wordsDB, randomWords...)
+		}
+	}
+
+	// 3. Конвертируем в DTO
+	respWords := make([]models.WordResponse, len(wordsDB))
+	for i, w := range wordsDB {
+		transcription := ""
+		if w.Transcription != nil {
+			transcription = *w.Transcription
+		}
+		respWords[i] = models.WordResponse{
+			ID:              w.ID.String(),
+			Original:        w.Original,
+			Translation:     w.Translation,
+			Transcription:   transcription,
+			DifficultyLevel: w.DifficultyLevel,
+			IsLearned:       w.IsLearned,
+		}
+	}
+
+	return &models.LessonResponse{Words: respWords}, nil
+}
+
+// ProcessAnswer обрабатывает ответ пользователя и обновляет математику сложности.
+func (s *dictionaryService) ProcessAnswer(ctx context.Context, userID uuid.UUID, req models.SubmitAnswerRequest) (*models.SubmitAnswerResponse, error) {
+	wordID, err := uuid.Parse(req.WordID)
+	if err != nil {
+		// Если не UUID, пробуем найти слово по 'original' и получить его ID
+		slogger.Log.DebugContext(ctx, "wordID is not a UUID in ProcessAnswer, searching by original", "word", req.WordID)
+		words, searchErr := s.repo.SearchByOriginal(ctx, req.WordID)
+		if searchErr != nil || len(words) == 0 {
+			return nil, err
+		}
+		wordID = words[0].ID
+	}
+
+	// 1. Получаем текущий прогресс
+	progress, err := s.repo.GetUserProgress(ctx, userID, wordID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Если прогресса нет (первая встреча со словом), инициализируем
+	if progress == nil {
+		progress = &modelsDB.UserProgressDB{
+			UserID:          userID,
+			WordID:          wordID,
+			DifficultyLevel: 0.0,
+			TotalMistakes:   0,
+		}
+	}
+
+	// 2. Обновляем метрики
+	progress.LastSeen = time.Now()
+
+	if req.IsCorrect {
+		progress.CorrectStreak++
+		// Уменьшаем сложность (минимум 0)
+		progress.DifficultyLevel = math.Max(0.0, progress.DifficultyLevel-0.1)
+
+		// Условие "Выучено": 5 раз подряд верно и сложность низкая
+		if progress.CorrectStreak >= 5 && progress.DifficultyLevel <= 0.3 {
+			progress.IsLearned = true
+		}
+	} else {
+		progress.CorrectStreak = 0
+		progress.TotalMistakes = 1 // Это поле прибавится к существующему в SQL запросе (+ EXCLUDED.total_mistakes)
+		progress.IsLearned = false
+		// При ошибке сложность растет быстрее (максимум 1.0)
+		progress.DifficultyLevel = math.Min(1.0, progress.DifficultyLevel+0.3)
+	}
+
+	// 3. Сохраняем в БД
+	err = s.repo.SaveUserProgress(ctx, progress)
+	if err != nil {
+		return nil, err
+	}
+
+	return &models.SubmitAnswerResponse{
+		WordID:        wordID.String(),
+		NewDifficulty: progress.DifficultyLevel,
+		IsLearned:     progress.IsLearned,
+		CorrectStreak: progress.CorrectStreak,
+	}, nil
+}
+
+func (s *dictionaryService) MarkAsLearned(ctx context.Context, userID uuid.UUID, wordIDStr string) error {
+	wordID, err := uuid.Parse(wordIDStr)
+	if err != nil {
+		return err
+	}
+
+	progress, err := s.repo.GetUserProgress(ctx, userID, wordID)
+	if err != nil {
+		return err
+	}
+
+	if progress == nil {
+		progress = &modelsDB.UserProgressDB{
+			UserID: userID,
+			WordID: wordID,
+		}
+	}
+
+	progress.IsLearned = true
+	progress.DifficultyLevel = 0.0
+	progress.LastSeen = time.Now()
+
+	return s.repo.SaveUserProgress(ctx, progress)
 }

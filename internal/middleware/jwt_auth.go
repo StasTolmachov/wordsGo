@@ -22,9 +22,9 @@ func AuthMidleware(secret string) func(next http.Handler) http.Handler {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
-			parts := strings.SplitN(authHeader, " ", 2)
-			if !(len(parts) == 2 && parts[0] == "Bearer") {
-				http.Error(w, "Invalid Authorization header", http.StatusUnauthorized)
+			parts := strings.Split(authHeader, " ")
+			if len(parts) != 2 || parts[0] != "Bearer" {
+				http.Error(w, "Invalid authorization header format", http.StatusUnauthorized)
 				return
 			}
 
@@ -39,6 +39,7 @@ func AuthMidleware(secret string) func(next http.Handler) http.Handler {
 			if err != nil {
 				http.Error(w, "Failed to parse user ID", http.StatusInternalServerError)
 				slogger.Log.ErrorContext(r.Context(), "Failed to parse user ID", "err", err)
+				return
 			}
 			userCtx := &models.User{
 				ID:   id,

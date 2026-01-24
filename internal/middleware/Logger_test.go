@@ -6,9 +6,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"wordsGo/slogger"
 )
 
 func TestLoggerMiddleware(t *testing.T) {
+	slogger.MakeLogger(true)
+
 	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})

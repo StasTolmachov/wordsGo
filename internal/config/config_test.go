@@ -20,6 +20,9 @@ func TestLoad(t *testing.T) {
 		t.Setenv("DB_NAME", "users_db")
 		t.Setenv("DB_MIGRATE_PATH", "file://migrations")
 		t.Setenv("API_PORT", "8080")
+		t.Setenv("JWT_SECRET", "secret")
+		t.Setenv("ADMIN_EMAIL", "admin@example.com")
+		t.Setenv("ADMIN_PASSWORD", "password")
 
 		cfg, err := Load()
 		assert.NoError(t, err)

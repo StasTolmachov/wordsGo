@@ -92,6 +92,8 @@ func (s *UserRepoSuite) TestCreateUser() {
 		FirstName:    "Test",
 		LastName:     "User",
 		Role:         "user",
+		SourceLang:   "en",
+		TargetLang:   "ru",
 	}
 
 	s.Run("Success create user", func() {
@@ -124,6 +126,9 @@ func (s *UserRepoSuite) TestGetPasswordHashByEmail() {
 		PasswordHash: "someHash",
 		FirstName:    "Test",
 		LastName:     "User",
+		Role:         "user",
+		SourceLang:   "en",
+		TargetLang:   "ru",
 	}
 	s.Run("User not found", func() {
 		gotUser, err := s.repo.GetPasswordHashByEmail(context.Background(), newUser.Email)
@@ -132,18 +137,8 @@ func (s *UserRepoSuite) TestGetPasswordHashByEmail() {
 	})
 
 	s.Run("Success get password", func() {
-		query := `
-		insert into users 
-    	(email, password_hash, first_name, last_name)
-		values ($1, $2, $3, $4)
-		`
-
-		s.pg.db.QueryRowxContext(context.Background(), query,
-			newUser.Email,
-			newUser.PasswordHash,
-			newUser.FirstName,
-			newUser.LastName,
-		)
+		_, err := s.repo.Create(context.Background(), newUser)
+		s.Require().NoError(err)
 
 		gotUser, _ := s.repo.GetPasswordHashByEmail(context.Background(), newUser.Email)
 		s.Require().Equal(newUser.PasswordHash, gotUser.PasswordHash)
@@ -157,6 +152,8 @@ func (s *UserRepoSuite) TestUpdateUser() {
 		FirstName:    "OldName",
 		LastName:     "OldLast",
 		Role:         "user",
+		SourceLang:   "en",
+		TargetLang:   "ru",
 	}
 	createdUser, err := s.repo.Create(context.Background(), userToUpdate)
 	s.Require().NoError(err)
@@ -217,6 +214,8 @@ func (s *UserRepoSuite) TestGetUsers() {
 			FirstName:    "Test",
 			LastName:     "User",
 			Role:         "user",
+			SourceLang:   "en",
+			TargetLang:   "ru",
 		})
 		s.Require().NoError(err)
 		time.Sleep(time.Millisecond * 10)
@@ -261,6 +260,8 @@ func (s *UserRepoSuite) TestDelete() {
 		FirstName:    "Test",
 		LastName:     "User",
 		Role:         "user",
+		SourceLang:   "en",
+		TargetLang:   "ru",
 	}
 	createdUser, err := s.repo.Create(context.Background(), newUser)
 	s.Require().NoError(err)

@@ -21,7 +21,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Configuration load failed: %s", err)
 	}
-	slogger.Log.Debug("Config loaded", "config:", cfg)
+	slogger.Log.Debug("Config loaded", "api_port", cfg.Api.Port)
 
 	server.Run(*cfg)
 
