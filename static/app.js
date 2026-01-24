@@ -30,9 +30,11 @@ if (token) {
 
 function showSection(id) {
     ['search-container', 'words-container', 'lesson-container', 'profile-container'].forEach(s => {
-        document.getElementById(s).classList.add('hidden');
+        const el = document.getElementById(s);
+        if (el) el.classList.add('hidden');
     });
-    document.getElementById(id).classList.remove('hidden');
+    const target = document.getElementById(id);
+    if (target) target.classList.remove('hidden');
 }
 
 function showDashboard() {
@@ -86,9 +88,10 @@ document.getElementById('nav-search').onclick = () => showSection('search-contai
 
 document.getElementById('nav-words').onclick = () => {
     showSection('words-container');
-    wordsPage = 1; // Reset to first page
-    myWordsSearchQuery = ''; // Reset search
-    document.getElementById('my-words-search').value = '';
+    wordsPage = 1;
+    myWordsSearchQuery = '';
+    const searchInput = document.getElementById('my-words-search');
+    if (searchInput) searchInput.value = '';
     loadMyWords();
 };
 
@@ -108,7 +111,7 @@ document.getElementById('nav-profile').onclick = () => {
     loadProfile();
 };
 
-// Pagination Controls
+// --- Pagination Controls ---
 document.getElementById('words-prev').onclick = () => {
     if (wordsPage > 1) {
         wordsPage--;
@@ -123,9 +126,38 @@ document.getElementById('words-next').onclick = () => {
     }
 };
 
+// --- GLOBAL EVENT DELEGATION FOR LESSON (FIXED) ---
+// Мы слушаем клики на всем body и перехватываем клик по кнопке #next-question
+document.body.addEventListener('click', (e) => {
+    // Проверяем, кликнули ли по кнопке "Next/Try Again"
+    if (e.target && e.target.id === 'next-question') {
+        console.log('Next button clicked via delegation!');
 
-// --- Authentication ---
+        const nextBtn = document.getElementById('next-question');
+        nextBtn.classList.add('hidden'); // Сразу скрываем, чтобы не кликнули дважды
 
+        if (lastAnswerWasCorrect) {
+            console.log('Answer was correct, advancing index...');
+            // Логика "Следующее слово"
+            currentWordIndex++;
+
+            if (currentLessonWords && currentWordIndex < currentLessonWords.length) {
+                displayQuestion();
+            } else {
+                console.log('Batch finished, loading new words...');
+                showToast('Great job! Loading more words...', 'success');
+                loadNextLessonBatch();
+            }
+        } else {
+            console.log('Answer was incorrect, retrying same word...');
+            // Логика "Попробовать еще раз"
+            displayQuestion();
+        }
+    }
+});
+
+
+// --- Authentication (Login/Register) ---
 document.getElementById('login-form').onsubmit = async (e) => {
     e.preventDefault();
     const email = document.getElementById('login-email').value;
@@ -138,17 +170,7 @@ document.getElementById('login-form').onsubmit = async (e) => {
             headers: { 'Content-Type': 'application/json' }
         });
 
-        const contentType = response.headers.get("content-type");
-        let data;
-        if (contentType && contentType.indexOf("application/json") !== -1) {
-            data = await response.json();
-        } else {
-            const text = await response.text();
-            console.error("Non-JSON response:", text);
-            showToast('Server error: ' + (text || response.statusText), 'error');
-            return;
-        }
-
+        const data = await response.json();
         if (response.ok) {
             token = data.token;
             localStorage.setItem('token', token);
@@ -158,12 +180,10 @@ document.getElementById('login-form').onsubmit = async (e) => {
             showToast(data.error || 'Login failed', 'error');
         }
     } catch (err) {
-        console.error(err);
         showToast('Network error during login', 'error');
     }
 };
 
-// Registration Logic
 function validatePassword(password) {
     const checks = {
         length: password.length >= 8,
@@ -192,12 +212,10 @@ document.getElementById('reg-password').oninput = (e) => {
 document.getElementById('register-form').onsubmit = async (e) => {
     e.preventDefault();
     const password = document.getElementById('reg-password').value;
-
     if (!updatePasswordRequirements(password)) {
         showToast('Password does not meet requirements', 'error');
         return;
     }
-
     const body = {
         first_name: document.getElementById('reg-firstname').value,
         last_name: document.getElementById('reg-lastname').value,
@@ -206,35 +224,25 @@ document.getElementById('register-form').onsubmit = async (e) => {
         source_lang: document.getElementById('reg-sourcelang').value,
         target_lang: document.getElementById('reg-targetlang').value
     };
-
     try {
         const response = await fetch(`${API_URL}/users`, {
             method: 'POST',
             body: JSON.stringify(body),
             headers: { 'Content-Type': 'application/json' }
         });
-
         if (response.ok) {
             showToast('Registration successful! Please login.', 'success');
             document.getElementById('show-login').click();
             document.getElementById('register-form').reset();
         } else {
-            const contentType = response.headers.get("content-type");
-            if (contentType && contentType.indexOf("application/json") !== -1) {
-                const data = await response.json();
-                showToast(data.error || 'Registration failed', 'error');
-            } else {
-                const text = await response.text();
-                showToast('Registration failed: ' + text, 'error');
-            }
+            const data = await response.json();
+            showToast(data.error || 'Registration failed', 'error');
         }
-    } catch (err) {
-        showToast('Network error during registration', 'error');
-    }
+    } catch (err) { showToast('Network error during registration', 'error'); }
 };
 
-// --- Edit Word Modal Logic ---
 
+// --- Edit Word Modal ---
 const editWordModal = document.getElementById('edit-word-modal');
 const editWordForm = document.getElementById('edit-word-form');
 const closeModalSpan = document.getElementById('close-modal');
@@ -243,59 +251,28 @@ const cancelModalBtn = document.getElementById('cancel-modal-btn');
 function openEditModal(word) {
     document.getElementById('edit-word-id').value = word.id;
     document.getElementById('modal-word-title').textContent = `Edit: ${decodeHTML(word.original)}`;
-    
-    // Pre-fill with custom value if exists, else original
     document.getElementById('edit-transcription').value = word.custom_transcription || word.transcription || '';
     document.getElementById('edit-translation').value = word.custom_translation || word.translation || '';
     document.getElementById('edit-synonyms').value = word.custom_synonyms || word.synonyms || '';
-
     editWordModal.classList.remove('hidden');
-    // Focus the submit button (Add to Learning)
     setTimeout(() => document.getElementById('modal-submit-btn').focus(), 50);
 }
 
 function closeEditModal() {
     editWordModal.classList.add('hidden');
-    // Restore focus to search input if appropriate
-    document.getElementById('search-input').focus();
 }
 
 closeModalSpan.onclick = closeEditModal;
 cancelModalBtn.onclick = closeEditModal;
-window.onclick = (event) => {
-    if (event.target == editWordModal) {
-        closeEditModal();
-    }
-};
-window.onkeydown = (event) => {
-    if (event.key === 'Escape' && !editWordModal.classList.contains('hidden')) {
-        closeEditModal();
-    }
-};
-
-// Add Enter key support for modal inputs
-editWordForm.querySelectorAll('input').forEach(input => {
-    input.onkeydown = (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            // Trigger form submission
-            editWordForm.requestSubmit();
-        }
-    };
-});
 
 editWordForm.onsubmit = async (e) => {
     e.preventDefault();
-    console.log("Submitting edit form...");
     const wordId = document.getElementById('edit-word-id').value;
-    console.log("Word ID:", wordId);
     const body = {
         transcription: document.getElementById('edit-transcription').value,
         translation: document.getElementById('edit-translation').value,
         synonyms: document.getElementById('edit-synonyms').value
     };
-    console.log("Body:", body);
-
     try {
         const response = await fetch(`${API_URL}/users/words/${wordId}`, {
             method: 'PATCH',
@@ -305,223 +282,83 @@ editWordForm.onsubmit = async (e) => {
                 'Authorization': `Bearer ${token}`
             }
         });
-
-        console.log("Response status:", response.status);
-
-        if (response.status === 401) {
-            handleUnauthorized();
-            return;
-        }
-
         if (response.ok) {
-            console.log("Update successful");
-            showToast('Word details updated!', 'success');
+            showToast('Word updated!', 'success');
             closeEditModal();
-            // Refresh lists if visible
-            if (!document.getElementById('search-container').classList.contains('hidden')) {
-                searchWords();
-            } else if (!document.getElementById('words-container').classList.contains('hidden')) {
-                loadMyWords();
-            }
-        } else {
-            const data = await response.json();
-            console.error("Update failed:", data);
-            showToast(data.error || 'Failed to update word', 'error');
+            if (!document.getElementById('search-container').classList.contains('hidden')) searchWords();
+            else loadMyWords();
         }
-    } catch (err) {
-        console.error("Network error:", err);
-        showToast('Network error updating word', 'error');
-    }
+    } catch (err) { showToast('Network error updating word', 'error'); }
 };
 
 // --- Search Dictionary ---
-
-let selectedSearchIndex = -1;
 let searchResultsData = [];
-
 document.querySelectorAll('.level-btn').forEach(btn => {
     btn.onclick = () => addWordsByLevel(btn.dataset.level);
 });
 
 async function addWordsByLevel(level) {
-    if (!confirm(`Add all ${level} words to your learning list?`)) return;
-
+    if (!confirm(`Add all ${level} words?`)) return;
     try {
         const response = await fetch(`${API_URL}/users/words/bulk`, {
             method: 'POST',
             body: JSON.stringify({ level: level }),
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            }
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
         });
-
-        if (response.status === 401) {
-            handleUnauthorized();
-            return;
-        }
-
         const data = await response.json();
-        if (response.ok) {
-            showToast(`Added ${data.count} words!`, 'success');
-        } else {
-            showToast(data.error || 'Failed to add words', 'error');
-        }
-    } catch (err) {
-        showToast('Network error adding words', 'error');
-    }
+        if (response.ok) showToast(`Added ${data.count} words!`, 'success');
+    } catch (err) { showToast('Error adding words', 'error'); }
 }
 
 document.getElementById('search-btn').onclick = searchWords;
-document.getElementById('search-input').oninput = (e) => {
-    const q = e.target.value;
-    if (q.length >= 1) {
-        searchWords();
-    } else {
-        document.getElementById('search-results').innerHTML = '';
-        searchResultsData = [];
-        selectedSearchIndex = -1;
-    }
-};
-
-document.getElementById('search-input').onkeydown = (e) => {
-    const resultsDiv = document.getElementById('search-results');
-    const items = resultsDiv.getElementsByClassName('result-item');
-    
-    if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        if (selectedSearchIndex < items.length - 1) {
-            selectedSearchIndex++;
-            highlightSearchResult(items);
-        }
-    } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        if (selectedSearchIndex > 0) {
-            selectedSearchIndex--;
-            highlightSearchResult(items);
-        }
-    } else if (e.key === 'Enter') {
-        e.preventDefault();
-        if (selectedSearchIndex >= 0 && selectedSearchIndex < searchResultsData.length) {
-            openEditModal(searchResultsData[selectedSearchIndex]);
-        } else {
-            searchWords();
-        }
-    }
-};
-
-function highlightSearchResult(items) {
-    Array.from(items).forEach((item, index) => {
-        if (index === selectedSearchIndex) {
-            item.classList.add('selected');
-            item.scrollIntoView({ block: 'nearest' });
-        } else {
-            item.classList.remove('selected');
-        }
-    });
-}
+document.getElementById('search-input').oninput = (e) => { if (e.target.value.length >= 1) searchWords(); };
 
 async function searchWords() {
     const q = document.getElementById('search-input').value;
-    if (!q) {
-        document.getElementById('search-results').innerHTML = '';
-        return;
-    }
-
     const resultsDiv = document.getElementById('search-results');
-
+    if (!q) { resultsDiv.innerHTML = ''; return; }
     try {
         const response = await fetch(`${API_URL}/dictionary/search?q=${encodeURIComponent(q)}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-
-        if (response.status === 401) {
-            handleUnauthorized();
-            return;
-        }
-
         const data = await response.json();
-        searchResultsData = data || []; // Store for keyboard nav
-        selectedSearchIndex = -1;
+        searchResultsData = data || [];
         resultsDiv.innerHTML = '';
-
         if (data && data.length > 0) {
             data.forEach((word, index) => {
                 const div = document.createElement('div');
                 div.className = 'result-item';
-                div.dataset.index = index; // Store index for click handling
-                
                 div.innerHTML = `
                     <div class="word-info">
                         <strong>${decodeHTML(word.original)}</strong>
                         <span>${decodeHTML(word.translation)}</span>
-                        ${word.level ? `<small>Level: ${word.level}</small>` : ''}
                     </div>
-                    <button class="add-word-btn" data-id="${word.id}">Add</button>
+                    <button class="add-word-btn">Add</button>
                 `;
-                
-                // Add click listener to the info part for editing
                 div.querySelector('.word-info').onclick = () => openEditModal(word);
-                
-                // Prevent bubbling when clicking add button
-                div.querySelector('.add-word-btn').onclick = (e) => {
-                    e.stopPropagation();
-                    addWord(word.id);
-                };
-
+                div.querySelector('.add-word-btn').onclick = (e) => { e.stopPropagation(); addWord(word.id); };
                 resultsDiv.appendChild(div);
             });
-
-        } else {
-            resultsDiv.innerHTML = '<p>No results found.</p>';
-        }
-    } catch (err) {
-        console.error(err);
-        showToast('Error searching words', 'error');
-        resultsDiv.innerHTML = '';
-    }
+        } else { resultsDiv.innerHTML = '<p>No results found.</p>'; }
+    } catch (err) { resultsDiv.innerHTML = ''; }
 }
 
 async function addWord(wordId) {
-    console.log("Adding word:", wordId);
     try {
         const response = await fetch(`${API_URL}/users/words`, {
             method: 'POST',
             body: JSON.stringify({ word_id: wordId }),
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            }
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
         });
-
-        console.log("Add word response status:", response.status);
-
-        if (response.status === 401) {
-            handleUnauthorized();
-            return;
-        }
-
-        if (response.ok) {
-            console.log("Word added successfully");
-            showToast('Word added to your list!', 'success');
-        } else {
-            const data = await response.json();
-            console.error("Add word failed:", data);
-            showToast(data.error || 'Failed to add word', 'error');
-        }
-    } catch (err) {
-        console.error("Network error adding word:", err);
-        showToast('Network error adding word', 'error');
-    }
+        if (response.ok) showToast('Word added!', 'success');
+    } catch (err) { showToast('Error adding word', 'error'); }
 }
 
-// --- My Words (With Pagination and Delete) ---
-
+// --- My Words ---
 let myWordsSearchQuery = '';
-
 document.getElementById('my-words-search').oninput = (e) => {
     myWordsSearchQuery = e.target.value;
-    wordsPage = 1; // Reset to first page on new search
+    wordsPage = 1;
     loadMyWords();
 };
 
@@ -529,236 +366,159 @@ async function loadMyWords() {
     const listDiv = document.getElementById('words-list');
     const paginationDiv = document.getElementById('words-pagination');
     const progressDiv = document.getElementById('progress-container');
-    
     listDiv.innerHTML = '<p>Loading...</p>';
-    paginationDiv.classList.add('hidden');
-    progressDiv.innerHTML = '';
-
     try {
         const response = await fetch(`${API_URL}/words?limit=${wordsLimit}&page=${wordsPage}&q=${encodeURIComponent(myWordsSearchQuery)}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-
-        if (response.status === 401) {
-            handleUnauthorized();
-            return;
-        }
-
-        const data = await response.json(); // Expected models.ListOfWordsResponse
-        
-        // Render Progress
+        const data = await response.json();
         if (data.progress) {
-            let progressHtml = `<div class="overall-progress">Overall: ${data.progress.total.toFixed(1)}%</div><div class="level-progress">`;
-            for (const [level, percent] of Object.entries(data.progress.by_level)) {
-                progressHtml += `<div class="progress-item"><strong>${level}:</strong> ${percent.toFixed(1)}%</div>`;
+            let p = `<div class="overall-progress">Overall: ${data.progress.total.toFixed(1)}%</div><div class="level-progress">`;
+            for (const [lvl, pct] of Object.entries(data.progress.by_level)) {
+                p += `<div class="progress-item"><strong>${lvl}:</strong> ${pct.toFixed(1)}%</div>`;
             }
-            progressHtml += '</div>';
-            progressDiv.innerHTML = progressHtml;
+            progressDiv.innerHTML = p + '</div>';
         }
-
         listDiv.innerHTML = '';
-
         const words = data.data || [];
         wordsTotalPages = data.pages || 1;
-
         if (words.length > 0) {
             words.forEach(word => {
                 const div = document.createElement('div');
                 div.className = 'word-item';
-                
-                // Display custom values if present
-                const displayTranslation = word.custom_translation || word.translation;
-                const displayTranscription = word.custom_transcription || word.transcription;
-                // Note: Synonyms are hidden in list view usually, but editable in modal.
-
                 div.innerHTML = `
                     <div class="word-info">
-                        <div class="word-header">
-                            <strong>${decodeHTML(word.original)}</strong> — <span>${decodeHTML(displayTranslation)}</span>
-                        </div>
-                        <div class="word-details">
-                            ${displayTranscription ? `<span class="tag">/${decodeHTML(displayTranscription)}/</span>` : ''}
-                            ${word.pos ? `<span class="tag">${decodeHTML(word.pos)}</span>` : ''}
-                            ${word.level ? `<span class="tag level">${decodeHTML(word.level)}</span>` : ''}
-                        </div>
-                        <div class="word-stats">
-                            <span title="Difficulty">Diff: ${word.difficulty_level.toFixed(1)}</span>
-                            <span title="Correct Streak">Streak: ${word.correct_streak}</span>
-                            <span title="Total Mistakes">Mistakes: ${word.total_mistakes}</span>
-                            ${word.is_learned ? '<span class="learned-badge">Learned</span>' : ''}
-                        </div>
+                        <div class="word-header"><strong>${decodeHTML(word.original)}</strong> — ${decodeHTML(word.custom_translation || word.translation)}</div>
                     </div>
-                    <button class="delete-word-btn" onclick="deleteWord('${word.id}')">Delete</button>
+                    <button class="delete-word-btn">Delete</button>
                 `;
-                
-                // Add edit listener
                 div.querySelector('.word-info').onclick = () => openEditModal(word);
-                
-                // Prevent bubbling for delete
-                div.querySelector('.delete-word-btn').onclick = (e) => {
-                    e.stopPropagation();
-                    deleteWord(word.id);
-                };
-
+                div.querySelector('.delete-word-btn').onclick = (e) => { e.stopPropagation(); deleteWord(word.id); };
                 listDiv.appendChild(div);
             });
-
-            // Update Pagination UI
             document.getElementById('words-page-info').textContent = `Page ${data.page} of ${data.pages}`;
             document.getElementById('words-prev').disabled = data.page <= 1;
             document.getElementById('words-next').disabled = data.page >= data.pages;
             paginationDiv.classList.remove('hidden');
-
-        } else {
-            listDiv.innerHTML = '<p>No words in your learning list yet.</p>';
-        }
-    } catch (err) {
-        console.error(err);
-        showToast('Error loading words', 'error');
-        listDiv.innerHTML = '<p>Error loading words.</p>';
-    }
+        } else { listDiv.innerHTML = '<p>No words found.</p>'; }
+    } catch (err) { listDiv.innerHTML = '<p>Error loading.</p>'; }
 }
 
 async function deleteWord(wordId) {
-    if (!confirm('Are you sure you want to delete this word from your learning list?')) return;
-
+    if (!confirm('Delete word?')) return;
     try {
         const response = await fetch(`${API_URL}/users/words/${wordId}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${token}` }
         });
-
-        if (response.status === 401) {
-            handleUnauthorized();
-            return;
-        }
-
-        if (response.ok) {
-            showToast('Word deleted', 'success');
-            loadMyWords(); // Reload list
-        } else {
-            showToast('Failed to delete word', 'error');
-        }
-    } catch (err) {
-        console.error(err);
-        showToast('Network error deleting word', 'error');
-    }
+        if (response.ok) { showToast('Deleted', 'success'); loadMyWords(); }
+    } catch (err) { showToast('Error deleting', 'error'); }
 }
 
-// --- Lesson Logic ---
+// --- Lesson Logic (FINAL FIX WITH DELEGATION) ---
 
 async function startLesson() {
+    currentLessonWords = [];
+    currentWordIndex = 0;
     loadNextLessonBatch();
 }
 
 async function loadNextLessonBatch() {
-    const contentDiv = document.getElementById('lesson-content');
-    
-    // Only show loading if we are just starting or have no content
-    if (currentLessonWords.length === 0) {
-        contentDiv.innerHTML = '<p>Loading lesson...</p>';
-    }
-    
-    document.getElementById('next-question').classList.add('hidden');
-
-    try {
-        const response = await fetch(`${API_URL}/lesson/start`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (response.status === 401) {
-            handleUnauthorized();
-            return;
-        }
-
-        const data = await response.json();
-
-        if (response.ok && data.words && data.words.length > 0) {
-            // Restore content structure in case it was overwritten
-            if (!document.getElementById('lesson-question')) {
-                contentDiv.innerHTML = `
-                    <div id="lesson-question"></div>
-                    <div id="lesson-options"></div>
-                    <div id="lesson-feedback"></div>
-                `;
-            }
-            
-            currentLessonWords = data.words;
-            currentWordIndex = 0;
-            hasAttemptedCurrentWord = false;
-            displayQuestion();
-        } else {
-            const errorMsg = data.error || 'No words available for lesson. Add some words first!';
-            contentDiv.innerHTML = `<p>${errorMsg}</p>`;
-        }
-    } catch (err) {
-        console.error(err);
-        showToast('Error starting lesson', 'error');
-        contentDiv.innerHTML = '<p>Error starting lesson.</p>';
-    }
-}
-
-function displayQuestion() {
+    const statusDiv = document.getElementById('lesson-status');
     const questionDiv = document.getElementById('lesson-question');
     const optionsDiv = document.getElementById('lesson-options');
     const feedbackDiv = document.getElementById('lesson-feedback');
     const nextBtn = document.getElementById('next-question');
 
-    feedbackDiv.innerHTML = '';
-    nextBtn.classList.add('hidden');
-    optionsDiv.innerHTML = '';
+    // Очищаем старые данные. НЕ ИСПОЛЬЗУЕМ innerHTML НА РОДИТЕЛЯХ
+    if (statusDiv) statusDiv.innerHTML = '<p>Loading lesson words...</p>';
+    if (questionDiv) questionDiv.innerHTML = '';
+    if (optionsDiv) optionsDiv.innerHTML = '';
+    if (feedbackDiv) feedbackDiv.innerHTML = '';
+
+    // Скрываем кнопку
+    if (nextBtn) nextBtn.classList.add('hidden');
+
+    try {
+        const response = await fetch(`${API_URL}/lesson/start`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+
+        console.log("Lesson data loaded:", data);
+
+        if (response.ok && data.words && data.words.length > 0) {
+            if (statusDiv) statusDiv.innerHTML = '';
+            currentLessonWords = data.words;
+            currentWordIndex = 0;
+            displayQuestion();
+        } else {
+            if (statusDiv) statusDiv.innerHTML = `<p>${data.error || 'Add more words to start a lesson!'}</p>`;
+        }
+    } catch (err) {
+        console.error("Lesson load error:", err);
+        if (statusDiv) statusDiv.innerHTML = '<p>Network error starting lesson.</p>';
+    }
+}
+
+function displayQuestion() {
+    console.log("Displaying question. Index:", currentWordIndex);
+
+    const questionDiv = document.getElementById('lesson-question');
+    const optionsDiv = document.getElementById('lesson-options');
+    const feedbackDiv = document.getElementById('lesson-feedback');
+    const nextBtn = document.getElementById('next-question');
+
+    // Сброс состояния UI
+    if (feedbackDiv) {
+        feedbackDiv.innerHTML = '';
+        feedbackDiv.className = '';
+    }
+
+    // Скрываем кнопку, пока пользователь не проверит ответ
+    if (nextBtn) nextBtn.classList.add('hidden');
+
+    if (optionsDiv) optionsDiv.innerHTML = '';
+
+    hasAttemptedCurrentWord = false;
 
     const currentWord = currentLessonWords[currentWordIndex];
-    
-    questionDiv.innerHTML = `
-        <h3>Translate this word:</h3>
-        <div class="lesson-word-display"><strong>${decodeHTML(currentWord.translation)}</strong></div>
-    `;
+    if (!currentWord) {
+        console.log("No word found at index, loading next batch...");
+        loadNextLessonBatch();
+        return;
+    }
+
+    if (questionDiv) {
+        questionDiv.innerHTML = `
+            <h3>Translate this word:</h3>
+            <div class="lesson-word-display"><strong>${decodeHTML(currentWord.translation)}</strong></div>
+        `;
+    }
 
     const input = document.createElement('input');
     input.type = 'text';
     input.id = 'lesson-answer-input';
-    input.placeholder = 'Type English translation...';
+    input.placeholder = 'Type English word...';
     input.autocomplete = 'off';
 
     const checkBtn = document.createElement('button');
     checkBtn.textContent = 'Check';
-    checkBtn.id = 'check-answer-btn';
-
-    const learnedBtn = document.createElement('button');
-    learnedBtn.textContent = 'Mark Learned (Tab)';
-    learnedBtn.id = 'mark-learned-btn';
-    learnedBtn.classList.add('hidden');
-    learnedBtn.style.backgroundColor = 'var(--success-color)';
+    checkBtn.className = 'primary-btn';
+    checkBtn.id = 'check-answer-btn'; // ID для ясности
 
     optionsDiv.appendChild(input);
     optionsDiv.appendChild(checkBtn);
-    optionsDiv.appendChild(learnedBtn);
-
     input.focus();
 
-    const handleMarkLearned = async () => {
-        try {
-            const response = await fetch(`${API_URL}/lesson/learned/${currentWord.id}`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (response.ok) {
-                showToast('Word marked as learned!', 'success');
-                // Move to next word immediately
-                lastAnswerWasCorrect = true;
-                nextBtn.click();
-            }
-        } catch (err) {
-            console.error(err);
-        }
-    };
-
+    // Локальная функция проверки
     const handleCheck = () => {
+        console.log("Checking answer...");
         const userAnswer = input.value.trim().toLowerCase();
         const correctAnswer = decodeHTML(currentWord.original).trim().toLowerCase();
-        
-        lastAnswerWasCorrect = userAnswer === correctAnswer;
+
+        lastAnswerWasCorrect = (userAnswer === correctAnswer);
+        console.log("Is Correct:", lastAnswerWasCorrect);
 
         input.disabled = true;
         checkBtn.disabled = true;
@@ -766,11 +526,11 @@ function displayQuestion() {
         if (lastAnswerWasCorrect) {
             feedbackDiv.innerHTML = '<span class="correct-text">✓ Correct!</span>';
             feedbackDiv.className = 'correct';
-            learnedBtn.classList.remove('hidden');
-            learnedBtn.onclick = handleMarkLearned;
+            if (nextBtn) nextBtn.textContent = 'Next Word';
         } else {
-            feedbackDiv.innerHTML = `<span class="incorrect-text">✗ Wrong.</span> Correct answer: <strong>${decodeHTML(currentWord.original)}</strong>`;
+            feedbackDiv.innerHTML = `<span class="incorrect-text">✗ Incorrect.</span> Correct answer: <strong>${decodeHTML(currentWord.original)}</strong>`;
             feedbackDiv.className = 'incorrect';
+            if (nextBtn) nextBtn.textContent = 'Try Again';
         }
 
         if (!hasAttemptedCurrentWord) {
@@ -778,173 +538,37 @@ function displayQuestion() {
             hasAttemptedCurrentWord = true;
         }
 
-        nextBtn.classList.remove('hidden');
-        if (lastAnswerWasCorrect) {
-            nextBtn.textContent = 'Next Word';
-        } else {
-            nextBtn.textContent = 'Try Again';
+        // Показываем кнопку. Клик по ней обработает ГЛОБАЛЬНЫЙ делегат (вверху файла)
+        if (nextBtn) {
+            nextBtn.classList.remove('hidden');
+            nextBtn.focus();
         }
-        
-        nextBtn.focus();
     };
 
     checkBtn.onclick = handleCheck;
-    input.onkeypress = (e) => {
-        if (e.key === 'Enter') handleCheck();
-    };
-
-    // Tab key handling
-    input.onkeydown = (e) => {
-        if (e.key === 'Tab' && !learnedBtn.classList.contains('hidden')) {
-            e.preventDefault();
-            handleMarkLearned();
-        }
-    };
-    
-    // Set up Next Button Handler
-    nextBtn.onclick = () => {
-        if (lastAnswerWasCorrect) {
-            // Move to next word
-            currentWordIndex++;
-            hasAttemptedCurrentWord = false; // Reset for new word
-
-            if (currentWordIndex < currentLessonWords.length) {
-                displayQuestion();
-            } else {
-                // Fetch next batch instead of finishing
-                showToast('Great job! Loading more words...', 'success');
-                loadNextLessonBatch();
-            }
-        } else {
-            // Reload same word, don't increment index
-            displayQuestion();
-        }
-    };
+    input.onkeydown = (e) => { if (e.key === 'Enter') handleCheck(); };
 }
 
 async function submitAnswerToBackend(wordId, isCorrect) {
     try {
-        const response = await fetch(`${API_URL}/lesson/answer`, {
+        await fetch(`${API_URL}/lesson/answer`, {
             method: 'POST',
-            body: JSON.stringify({
-                word_id: wordId,
-                is_correct: isCorrect
-            }),
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            }
+            body: JSON.stringify({ word_id: wordId, is_correct: isCorrect }),
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
         });
-
-        if (response.status === 401) {
-            handleUnauthorized();
-            return;
-        }
-    } catch (err) {
-        console.error('Error submitting answer:', err);
-    }
+    } catch (err) { console.error('Backend error', err); }
 }
 
-// --- Profile Logic ---
-
+// --- Profile ---
 async function loadProfile() {
     const infoDiv = document.getElementById('user-info');
-    infoDiv.innerHTML = '<p>Loading profile...</p>';
-    document.getElementById('edit-profile-form-container').classList.add('hidden');
-
     try {
-        const response = await fetch(`${API_URL}/users/me`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (response.status === 401) {
-            handleUnauthorized();
-            return;
-        }
-
-        if (response.ok) {
-            const user = await response.json();
-            currentUser = user;
-            infoDiv.innerHTML = `
-                <div class="user-details">
-                    <p><strong>Name:</strong> ${decodeHTML(user.first_name)} ${decodeHTML(user.last_name)}</p>
-                    <p><strong>Email:</strong> ${decodeHTML(user.email)}</p>
-                    <p><strong>Role:</strong> ${user.role}</p>
-                    <p><strong>Languages:</strong> ${user.source_lang} → ${user.target_lang}</p>
-                    <p><strong>Member since:</strong> ${new Date(user.created_at).toLocaleDateString()}</p>
-                </div>
-            `;
-        } else {
-            infoDiv.innerHTML = '<p>Failed to load profile.</p>';
-        }
-    } catch (err) {
-        showToast('Error loading profile', 'error');
-        infoDiv.innerHTML = '<p>Error loading profile.</p>';
-    }
+        const response = await fetch(`${API_URL}/users/me`, { headers: { 'Authorization': `Bearer ${token}` } });
+        const user = await response.json();
+        currentUser = user;
+        infoDiv.innerHTML = `
+            <p><strong>Name:</strong> ${decodeHTML(user.first_name)} ${decodeHTML(user.last_name)}</p>
+            <p><strong>Email:</strong> ${decodeHTML(user.email)}</p>
+        `;
+    } catch (err) { infoDiv.innerHTML = 'Error loading.'; }
 }
-
-// Edit Profile Handlers
-const editContainer = document.getElementById('edit-profile-form-container');
-const editForm = document.getElementById('edit-profile-form');
-
-document.getElementById('edit-profile-btn').onclick = () => {
-    if (!currentUser) return;
-    
-    // Pre-fill form
-    document.getElementById('edit-firstname').value = currentUser.first_name;
-    document.getElementById('edit-lastname').value = currentUser.last_name;
-    
-    editContainer.classList.remove('hidden');
-};
-
-document.getElementById('cancel-edit-btn').onclick = () => {
-    editContainer.classList.add('hidden');
-    editForm.reset();
-};
-
-editForm.onsubmit = async (e) => {
-    e.preventDefault();
-    if (!currentUser) return;
-
-    const firstName = document.getElementById('edit-firstname').value;
-    const lastName = document.getElementById('edit-lastname').value;
-    
-    const body = {};
-    if (firstName) body.first_name = firstName;
-    if (lastName) body.last_name = lastName;
-
-    if (Object.keys(body).length === 0) {
-        showToast('No changes to update', 'error');
-        return;
-    }
-
-    try {
-        const response = await fetch(`${API_URL}/users/${currentUser.id}`, {
-            method: 'PUT',
-            body: JSON.stringify(body),
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            }
-        });
-
-        if (response.status === 401) {
-            handleUnauthorized();
-            return;
-        }
-
-        if (response.ok) {
-            const updatedUser = await response.json();
-            currentUser = updatedUser; // Update local state
-            showToast('Profile updated successfully!', 'success');
-            editContainer.classList.add('hidden');
-            loadProfile(); // Refresh display
-        } else {
-            const data = await response.json();
-            showToast(data.error || 'Failed to update profile', 'error');
-        }
-    } catch (err) {
-        console.error(err);
-        showToast('Error updating profile', 'error');
-    }
-};
