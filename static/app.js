@@ -345,7 +345,11 @@ editWordForm.onsubmit = async (e) => {
             closeEditModal();
             // Refresh lists if visible
             if (!document.getElementById('search-container').classList.contains('hidden')) {
-                searchWords();
+                // Clear search instead of refreshing it
+                document.getElementById('search-input').value = '';
+                document.getElementById('search-results').innerHTML = '';
+                searchResultsData = [];
+                selectedSearchIndex = -1;
             } else if (!document.getElementById('words-container').classList.contains('hidden')) {
                 loadMyWords();
             }
@@ -530,6 +534,12 @@ async function addWord(wordId) {
         if (response.ok) {
             console.log("Word added successfully");
             showToast('Word added to your list!', 'success');
+            
+            // Clear search
+            document.getElementById('search-input').value = '';
+            document.getElementById('search-results').innerHTML = '';
+            searchResultsData = [];
+            selectedSearchIndex = -1;
         } else {
             const data = await response.json();
             console.error("Add word failed:", data);
@@ -636,7 +646,17 @@ async function loadMyWords() {
             paginationDiv.classList.remove('hidden');
 
         } else {
-            listDiv.innerHTML = '<p>No words in your learning list yet.</p>';
+            if (myWordsSearchQuery) {
+                listDiv.innerHTML = `<p class="search-no-results">No words matching "<strong>${myWordsSearchQuery}</strong>" found in your list.</p>`;
+            } else {
+                listDiv.innerHTML = `
+                    <div class="empty-state">
+                        <p>You haven't added any words to your learning list yet.</p>
+                        <p>Go to the <strong>Search</strong> page to find and add new words!</p>
+                        <button class="primary-btn" onclick="showSection('search-container')">Go to Search</button>
+                    </div>
+                `;
+            }
         }
     } catch (err) {
         console.error(err);

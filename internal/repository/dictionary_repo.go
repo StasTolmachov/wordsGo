@@ -305,7 +305,7 @@ func (r *DictionaryRepo) GetProgressStats(ctx context.Context, userID uuid.UUID)
 	query := `
 		SELECT 
 			level,
-			COUNT(*) FILTER (WHERE is_learned = true)::float / COUNT(*)::float * 100 as percent
+			COALESCE(COUNT(*) FILTER (WHERE is_learned = true)::float / NULLIF(COUNT(*), 0)::float * 100, 0) as percent
 		FROM dictionary d
 		JOIN user_progress up ON d.id = up.word_id
 		WHERE up.user_id = $1
@@ -334,7 +334,7 @@ func (r *DictionaryRepo) GetProgressStats(ctx context.Context, userID uuid.UUID)
 
 	var totalPercent float64
 	totalQuery := `
-		SELECT COUNT(*) FILTER (WHERE is_learned = true)::float / COUNT(*)::float * 100
+		SELECT COALESCE(COUNT(*) FILTER (WHERE is_learned = true)::float / NULLIF(COUNT(*), 0)::float * 100, 0)
 		FROM user_progress
 		WHERE user_id = $1
 	`
