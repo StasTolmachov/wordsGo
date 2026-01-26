@@ -257,6 +257,12 @@ button:disabled {
     color: var(--primary-color);
 }
 
+.lesson-transcription {
+    font-size: 0.5em;
+    color: #666;
+    margin-top: 5px;
+}
+
 #lesson-feedback {
     text-align: center;
     font-size: 1.2em;
@@ -402,4 +408,24 @@ button:disabled {
 
 #cancel-modal-btn {
     background-color: #95a5a6;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 2px dashed #dee2e6;
+    margin-top: 20px;
+}
+
+.empty-state p {
+    color: #6c757d;
+    font-size: 1.1em;
+    margin-bottom: 20px;
+}
+
+.empty-state button {
+    font-weight: bold;
 }

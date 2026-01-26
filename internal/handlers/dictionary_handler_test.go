@@ -112,6 +112,10 @@ func (s *stubDictionaryService) UpdateWordDetails(ctx context.Context, userID uu
 	return nil
 }
 
+func (s *stubDictionaryService) ResetProgress(ctx context.Context, userID uuid.UUID) error {
+	return nil
+}
+
 func TestHandler_SearchDictionary_EmptyQuery(t *testing.T) {
 	dict := &stubDictionaryService{}
 	handler := NewHandler(stubUserService{}, dict)

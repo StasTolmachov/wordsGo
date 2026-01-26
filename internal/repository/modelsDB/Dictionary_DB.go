@@ -50,6 +50,9 @@ type LessonWordDB struct {
 	IsLearned       bool       `db:"is_learned"`
 	CorrectStreak   int        `db:"correct_streak"`
 	DifficultyLevel float64    `db:"difficulty_level"`
+
+	CustomTranslation   *string `db:"custom_translation"`
+	CustomTranscription *string `db:"custom_transcription"`
 }
 
 // UserProgressDB используется для вставки/обновления прогресса.

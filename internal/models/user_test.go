@@ -116,7 +116,7 @@ func TestMappers(t *testing.T) {
 		resp := ToUserResponse(domainUser)
 		assert.Equal(t, domainUser.ID.String(), resp.ID)
 		assert.Equal(t, domainUser.Email, resp.Email)
-		assert.Equal(t, domainUser.CreatedAt.String(), resp.CreatedAt)
+		assert.Equal(t, domainUser.CreatedAt.Format(time.RFC3339), resp.CreatedAt)
 	})
 
 	t.Run("ToUserDB", func(t *testing.T) {
