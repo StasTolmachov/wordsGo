@@ -760,7 +760,6 @@ function displayQuestion() {
         <h3>Translate this word:</h3>
         <div class="lesson-word-display">
             <strong>${decodeHTML(currentWord.translation)}</strong>
-            ${currentWord.transcription ? `<div class="lesson-transcription">[${decodeHTML(currentWord.transcription)}]</div>` : ''}
         </div>
     `;
 
@@ -812,13 +811,33 @@ function displayQuestion() {
         input.disabled = true;
         checkBtn.disabled = true;
 
+        const detailsHtml = `
+            <div class="word-full-details">
+                <div class="main-word">${decodeHTML(currentWord.original)} ${currentWord.transcription ? `<span class="transcription">/${decodeHTML(currentWord.transcription)}/</span>` : ''}</div>
+                <div class="translation">${decodeHTML(currentWord.translation)}</div>
+                <div class="other-info">
+                    ${currentWord.pos ? `<span class="tag">${decodeHTML(currentWord.pos)}</span>` : ''}
+                    ${currentWord.level ? `<span class="tag level">${decodeHTML(currentWord.level)}</span>` : ''}
+                </div>
+                ${currentWord.synonyms ? `<div class="synonyms"><strong>Synonyms:</strong> ${decodeHTML(currentWord.synonyms)}</div>` : ''}
+                ${currentWord.past_simple_singular || currentWord.past_simple_plural || currentWord.past_participle_singular || currentWord.past_participle_plural ? `
+                    <div class="verb-forms">
+                        ${currentWord.past_simple_singular ? `<div><strong>Past Simple (s):</strong> ${decodeHTML(currentWord.past_simple_singular)}</div>` : ''}
+                        ${currentWord.past_simple_plural ? `<div><strong>Past Simple (p):</strong> ${decodeHTML(currentWord.past_simple_plural)}</div>` : ''}
+                        ${currentWord.past_participle_singular ? `<div><strong>Past Participle (s):</strong> ${decodeHTML(currentWord.past_participle_singular)}</div>` : ''}
+                        ${currentWord.past_participle_plural ? `<div><strong>Past Participle (p):</strong> ${decodeHTML(currentWord.past_participle_plural)}</div>` : ''}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+
         if (lastAnswerWasCorrect) {
-            feedbackDiv.innerHTML = '<span class="correct-text">✓ Correct!</span>';
+            feedbackDiv.innerHTML = `<span class="correct-text">✓ Correct!</span> ${detailsHtml}`;
             feedbackDiv.className = 'correct';
             learnedBtn.classList.remove('hidden');
             learnedBtn.onclick = handleMarkLearned;
         } else {
-            feedbackDiv.innerHTML = `<span class="incorrect-text">✗ Wrong.</span> Correct answer: <strong>${decodeHTML(currentWord.original)}</strong>`;
+            feedbackDiv.innerHTML = `<span class="incorrect-text">✗ Wrong.</span> ${detailsHtml}`;
             feedbackDiv.className = 'incorrect';
         }
 

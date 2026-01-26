@@ -257,12 +257,6 @@ button:disabled {
     color: var(--primary-color);
 }
 
-.lesson-transcription {
-    font-size: 0.5em;
-    color: #666;
-    margin-top: 5px;
-}
-
 #lesson-feedback {
     text-align: center;
     font-size: 1.2em;
@@ -428,4 +422,52 @@ button:disabled {
 
 .empty-state button {
     font-weight: bold;
+}
+
+/* Word Full Details in Lesson */
+.word-full-details {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(0,0,0,0.1);
+    text-align: left;
+}
+
+.word-full-details .main-word {
+    font-size: 1.4em;
+    font-weight: bold;
+    color: var(--text-color);
+}
+
+.word-full-details .main-word .transcription {
+    font-size: 0.7em;
+    color: #666;
+    font-weight: normal;
+    margin-left: 5px;
+}
+
+.word-full-details .translation {
+    font-size: 1.2em;
+    margin: 5px 0;
+    color: var(--primary-color);
+}
+
+.word-full-details .other-info {
+    margin: 10px 0;
+}
+
+.word-full-details .synonyms {
+    font-size: 0.9em;
+    color: #555;
+    margin: 8px 0;
+}
+
+.word-full-details .verb-forms {
+    font-size: 0.85em;
+    background: rgba(0,0,0,0.03);
+    padding: 10px;
+    border-radius: 4px;
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
 }

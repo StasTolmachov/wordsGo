@@ -82,12 +82,19 @@ type ListOfWordsResponse struct {
 
 // WordResponse описывает слово, которое отправляется клиенту для урока.
 type WordResponse struct {
-	ID              string  `json:"id"`
-	Original        string  `json:"original"`
-	Translation     string  `json:"translation"`
-	Transcription   string  `json:"transcription,omitempty"`
-	DifficultyLevel float64 `json:"difficulty_level"`
-	IsLearned       bool    `json:"is_learned"`
+	ID                     string  `json:"id"`
+	Original               string  `json:"original"`
+	Translation            string  `json:"translation"`
+	Transcription          string  `json:"transcription,omitempty"`
+	Pos                    string  `json:"pos,omitempty"`
+	Level                  string  `json:"level,omitempty"`
+	PastSimpleSingular     string  `json:"past_simple_singular,omitempty"`
+	PastSimplePlural       string  `json:"past_simple_plural,omitempty"`
+	PastParticipleSingular string  `json:"past_participle_singular,omitempty"`
+	PastParticiplePlural   string  `json:"past_participle_plural,omitempty"`
+	Synonyms               string  `json:"synonyms,omitempty"`
+	DifficultyLevel        float64 `json:"difficulty_level"`
+	IsLearned              bool    `json:"is_learned"`
 }
 
 // LessonResponse содержит список слов для локального цикла на клиенте.

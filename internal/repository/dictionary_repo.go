@@ -162,6 +162,7 @@ func (r *DictionaryRepo) GetLessonWords(ctx context.Context, userID uuid.UUID) (
 	new_words AS (
 		-- 1. Новые: добавлены в "Мои слова", но еще не выучены и не тренировались (чистый прогресс)
 		SELECT d.id, d.original, d.translation, d.transcription, 
+		       d.pos, d.level, d.past_simple_singular, d.past_simple_plural, d.past_participle_singular, d.past_participle_plural, d.synonyms,
 		       up.user_id, up.is_learned, up.correct_streak, up.difficulty_level,
 		       up.custom_translation, up.custom_transcription
 		FROM dictionary d
@@ -176,6 +177,7 @@ func (r *DictionaryRepo) GetLessonWords(ctx context.Context, userID uuid.UUID) (
 	hard_words AS (
 		-- 2. Сложные/В процессе: не выучены, но уже была попытка (есть ошибки или стрик)
 		SELECT d.id, d.original, d.translation, d.transcription, 
+		       d.pos, d.level, d.past_simple_singular, d.past_simple_plural, d.past_participle_singular, d.past_participle_plural, d.synonyms,
 		       up.user_id, up.is_learned, up.correct_streak, up.difficulty_level,
 		       up.custom_translation, up.custom_transcription
 		FROM dictionary d
@@ -189,6 +191,7 @@ func (r *DictionaryRepo) GetLessonWords(ctx context.Context, userID uuid.UUID) (
 	review_words AS (
 		-- 3. Повторение: уже выучены
 		SELECT d.id, d.original, d.translation, d.transcription, 
+		       d.pos, d.level, d.past_simple_singular, d.past_simple_plural, d.past_participle_singular, d.past_participle_plural, d.synonyms,
 		       up.user_id, up.is_learned, up.correct_streak, up.difficulty_level,
 		       up.custom_translation, up.custom_transcription
 		FROM dictionary d
@@ -221,6 +224,7 @@ func (r *DictionaryRepo) GetRandomWords(ctx context.Context, userID uuid.UUID, l
 	// Важно: JOIN user_progress, чтобы брать только добавленные слова
 	query := `
 		SELECT d.id, d.original, d.translation, d.transcription, 
+		       d.pos, d.level, d.past_simple_singular, d.past_simple_plural, d.past_participle_singular, d.past_participle_plural, d.synonyms,
 		       up.user_id, 
 		       up.is_learned, 
 		       up.correct_streak, 
