@@ -466,7 +466,7 @@ func (h *Handler) GetWords(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), ctxWithTimeout)
 	defer cancel()
 
-	words, err := h.dict.GetWords(ctx, user.ID, filter, limit, page, order)
+	words, err := h.dict.GetWords(ctx, user.ID, user.TargetLang, filter, limit, page, order)
 	if err != nil {
 		WriteError(w, http.StatusInternalServerError, "Failed to get words")
 		slogger.Log.ErrorContext(ctx, "Failed to get words", "err", err)
@@ -476,6 +476,7 @@ func (h *Handler) GetWords(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) SearchDictionary(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value(middleware.UserCtxKey{}).(*models.User)
 	query := r.URL.Query().Get("q")
 	if query == "" {
 		JSONResponse(w, http.StatusOK, []models.DictionaryWord{})
@@ -485,7 +486,7 @@ func (h *Handler) SearchDictionary(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), ctxWithTimeout)
 	defer cancel()
 
-	words, err := h.dict.SearchWords(ctx, query)
+	words, err := h.dict.SearchWords(ctx, query, user.TargetLang)
 	if err != nil {
 		slogger.Log.ErrorContext(ctx, "Search failed", "err", err)
 		WriteError(w, http.StatusInternalServerError, "Search failed")
@@ -535,7 +536,7 @@ func (h *Handler) AddWordToLearning(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	// 3. Вызываем сервис
-	err := h.dict.AddWordToLearning(ctx, user.ID, req.WordID)
+	err := h.dict.AddWordToLearning(ctx, user.ID, req.WordID, user.TargetLang)
 	if err != nil {
 		slogger.Log.ErrorContext(ctx, "Failed to add word to learning", "err", err, "userID", user.ID, "wordID", req.WordID)
 		// Здесь можно детализировать ошибку (например, если слово не найдено 404),
@@ -576,7 +577,7 @@ func (h *Handler) AddWordsByLevel(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), ctxWithTimeout)
 	defer cancel()
 
-	count, err := h.dict.AddWordsByLevel(ctx, user.ID, req.Level)
+	count, err := h.dict.AddWordsByLevel(ctx, user.ID, req.Level, user.TargetLang)
 	if err != nil {
 		slogger.Log.ErrorContext(ctx, "Failed to bulk add words", "err", err)
 		WriteError(w, http.StatusInternalServerError, "Failed to add words")
@@ -667,7 +668,7 @@ func (h *Handler) StartLesson(w http.ResponseWriter, r *http.Request) {
 	// Извлекаем пользователя из контекста (положен middleware)
 	user := r.Context().Value(middleware.UserCtxKey{}).(*models.User)
 
-	lessonResp, err := h.dict.GenerateLesson(r.Context(), user.ID)
+	lessonResp, err := h.dict.GenerateLesson(r.Context(), user.ID, user.TargetLang)
 	if err != nil {
 		slogger.Log.ErrorContext(r.Context(), "Failed to generate lesson", "err", err)
 		WriteError(w, http.StatusInternalServerError, "Failed to generate lesson")
@@ -703,7 +704,7 @@ func (h *Handler) SubmitAnswer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.dict.ProcessAnswer(r.Context(), user.ID, req)
+	resp, err := h.dict.ProcessAnswer(r.Context(), user.ID, req, user.TargetLang)
 	if err != nil {
 		slogger.Log.ErrorContext(r.Context(), "Failed to process answer", "err", err)
 		WriteError(w, http.StatusInternalServerError, "Failed to process answer")

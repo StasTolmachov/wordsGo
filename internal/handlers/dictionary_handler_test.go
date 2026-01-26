@@ -66,29 +66,29 @@ type stubDictionaryService struct {
 	answerCalled bool
 }
 
-func (s *stubDictionaryService) LoadDictionary(ctx context.Context, path string) error {
+func (s *stubDictionaryService) LoadDictionary(ctx context.Context, path, langCode string) error {
 	return nil
 }
-func (s *stubDictionaryService) GetWords(ctx context.Context, userID uuid.UUID, filter string, limit, page uint64, order string) (*models.ListOfWordsResponse, error) {
+func (s *stubDictionaryService) GetWords(ctx context.Context, userID uuid.UUID, langCode, filter string, limit, page uint64, order string) (*models.ListOfWordsResponse, error) {
 	return nil, nil
 }
-func (s *stubDictionaryService) SearchWords(ctx context.Context, query string) ([]*models.DictionaryWord, error) {
+func (s *stubDictionaryService) SearchWords(ctx context.Context, query, langCode string) ([]*models.DictionaryWord, error) {
 	s.searchCalled = true
 	s.searchQuery = query
 	return s.searchResult, s.searchErr
 }
-func (s *stubDictionaryService) AddWordToLearning(ctx context.Context, userID uuid.UUID, wordIDStr string) error {
+func (s *stubDictionaryService) AddWordToLearning(ctx context.Context, userID uuid.UUID, wordIDStr, langCode string) error {
 	s.addCalled = true
 	s.addUserID = userID
 	s.addWordID = wordIDStr
 	return s.addErr
 }
-func (s *stubDictionaryService) GenerateLesson(ctx context.Context, userID uuid.UUID) (*models.LessonResponse, error) {
+func (s *stubDictionaryService) GenerateLesson(ctx context.Context, userID uuid.UUID, langCode string) (*models.LessonResponse, error) {
 	s.lessonCalled = true
 	s.lessonUserID = userID
 	return s.lessonResp, s.lessonErr
 }
-func (s *stubDictionaryService) ProcessAnswer(ctx context.Context, userID uuid.UUID, req models.SubmitAnswerRequest) (*models.SubmitAnswerResponse, error) {
+func (s *stubDictionaryService) ProcessAnswer(ctx context.Context, userID uuid.UUID, req models.SubmitAnswerRequest, langCode string) (*models.SubmitAnswerResponse, error) {
 	s.answerCalled = true
 	s.answerUserID = userID
 	s.answerReq = req
@@ -100,7 +100,7 @@ func (s *stubDictionaryService) DeleteWordFromLearning(ctx context.Context, user
 	return nil
 }
 
-func (s *stubDictionaryService) AddWordsByLevel(ctx context.Context, userID uuid.UUID, level string) (int64, error) {
+func (s *stubDictionaryService) AddWordsByLevel(ctx context.Context, userID uuid.UUID, level, langCode string) (int64, error) {
 	return 0, nil
 }
 
@@ -121,6 +121,8 @@ func TestHandler_SearchDictionary_EmptyQuery(t *testing.T) {
 	handler := NewHandler(stubUserService{}, dict)
 
 	req := httptest.NewRequest(http.MethodGet, "/dictionary/search", nil)
+	userID := uuid.New()
+	req = req.WithContext(context.WithValue(req.Context(), middleware.UserCtxKey{}, &models.User{ID: userID, TargetLang: "en"}))
 	rr := httptest.NewRecorder()
 
 	handler.SearchDictionary(rr, req)
@@ -144,6 +146,8 @@ func TestHandler_SearchDictionary_Success(t *testing.T) {
 	handler := NewHandler(stubUserService{}, dict)
 
 	req := httptest.NewRequest(http.MethodGet, "/dictionary/search?q=app", nil)
+	userID := uuid.New()
+	req = req.WithContext(context.WithValue(req.Context(), middleware.UserCtxKey{}, &models.User{ID: userID, TargetLang: "en"}))
 	rr := httptest.NewRecorder()
 
 	handler.SearchDictionary(rr, req)

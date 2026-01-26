@@ -15,16 +15,16 @@ import (
 
 type DictionaryRepository interface {
 	DictionaryInsert(ctx context.Context, dictionary []modelsDB.DictionaryDB) error
-	GetWords(ctx context.Context, userID uuid.UUID, filter, order string, pagination modelsDB.Pagination) ([]modelsDB.UserWordDB, uint64, error)
-	SearchByOriginal(ctx context.Context, query string) ([]modelsDB.DictionaryDB, error)
+	GetWords(ctx context.Context, userID uuid.UUID, langCode, filter, order string, pagination modelsDB.Pagination) ([]modelsDB.UserWordDB, uint64, error)
+	SearchByOriginal(ctx context.Context, query, langCode string) ([]modelsDB.DictionaryDB, error)
 	AddWordToUser(ctx context.Context, userID, wordID uuid.UUID) error
-	GetLessonWords(ctx context.Context, userID uuid.UUID) ([]modelsDB.LessonWordDB, error)
-	GetRandomWords(ctx context.Context, userID uuid.UUID, limit int, excludeIDs []uuid.UUID) ([]modelsDB.LessonWordDB, error)
+	GetLessonWords(ctx context.Context, userID uuid.UUID, langCode string) ([]modelsDB.LessonWordDB, error)
+	GetRandomWords(ctx context.Context, userID uuid.UUID, limit int, excludeIDs []uuid.UUID, langCode string) ([]modelsDB.LessonWordDB, error)
 	GetUserProgress(ctx context.Context, userID, wordID uuid.UUID) (*modelsDB.UserProgressDB, error)
 	SaveUserProgress(ctx context.Context, p *modelsDB.UserProgressDB) error
 	DeleteUserProgress(ctx context.Context, userID, wordID uuid.UUID) error
-	AddWordsByLevel(ctx context.Context, userID uuid.UUID, level string) (int64, error)
-	GetProgressStats(ctx context.Context, userID uuid.UUID) (map[string]float64, float64, error)
+	AddWordsByLevel(ctx context.Context, userID uuid.UUID, level, langCode string) (int64, error)
+	GetProgressStats(ctx context.Context, userID uuid.UUID, langCode string) (map[string]float64, float64, error)
 	UpdateUserWordDetails(ctx context.Context, p *modelsDB.UserProgressDB) error
 	DeleteAllUserProgress(ctx context.Context, userID uuid.UUID) error
 }
@@ -53,9 +53,9 @@ func (r *DictionaryRepo) DictionaryInsert(ctx context.Context, dictionary []mode
 	}()
 
 	query := `insert into dictionary 
-    (original, translation, transcription, pos, level, past_simple_singular, past_simple_plural, past_participle_singular, past_participle_plural, Synonyms)
-    values (:original, :translation, :transcription, :pos, :level, :past_simple_singular, :past_simple_plural, :past_participle_singular, :past_participle_plural, :synonyms)
-    on conflict (original) do nothing`
+    (original, translation, transcription, pos, level, past_simple_singular, past_simple_plural, past_participle_singular, past_participle_plural, Synonyms, lang_code, grammar, examples)
+    values (:original, :translation, :transcription, :pos, :level, :past_simple_singular, :past_simple_plural, :past_participle_singular, :past_participle_plural, :synonyms, :lang_code, :grammar, :examples)
+    on conflict (original, lang_code) do nothing`
 
 	batchSize := 5000
 
@@ -77,15 +77,15 @@ func (r *DictionaryRepo) DictionaryInsert(ctx context.Context, dictionary []mode
 	return tx.Commit()
 }
 
-func (r *DictionaryRepo) GetWords(ctx context.Context, userID uuid.UUID, filter, order string, pagination modelsDB.Pagination) ([]modelsDB.UserWordDB, uint64, error) {
+func (r *DictionaryRepo) GetWords(ctx context.Context, userID uuid.UUID, langCode, filter, order string, pagination modelsDB.Pagination) ([]modelsDB.UserWordDB, uint64, error) {
 	sortOrder := "DESC"
 	if strings.ToUpper(order) == "ASC" {
 		sortOrder = "ASC"
 	}
 
-	whereClause := "up.user_id = $1"
-	args := []interface{}{userID}
-	argIdx := 2
+	whereClause := "up.user_id = $1 AND d.lang_code = $2"
+	args := []interface{}{userID, langCode}
+	argIdx := 3
 
 	if filter != "" {
 		whereClause += fmt.Sprintf(" AND (d.original ILIKE $%d || '%%' OR d.translation ILIKE $%d || '%%')", argIdx, argIdx)
@@ -125,16 +125,16 @@ func (r *DictionaryRepo) GetWords(ctx context.Context, userID uuid.UUID, filter,
 	return wordsDB, total, nil
 }
 
-func (r *DictionaryRepo) SearchByOriginal(ctx context.Context, query string) ([]modelsDB.DictionaryDB, error) {
+func (r *DictionaryRepo) SearchByOriginal(ctx context.Context, query, langCode string) ([]modelsDB.DictionaryDB, error) {
 	// Search in both English (original) and Russian (translation)
 	sqlQuery := `SELECT * FROM dictionary 
-                 WHERE original ILIKE $1 || '%' 
-                    OR translation ILIKE $1 || '%'
+                 WHERE (original ILIKE $1 || '%' OR translation ILIKE $1 || '%')
+				   AND lang_code = $2
                  ORDER BY original ASC 
                  LIMIT 20`
 
 	var words []modelsDB.DictionaryDB
-	err := r.db.db.SelectContext(ctx, &words, sqlQuery, query)
+	err := r.db.db.SelectContext(ctx, &words, sqlQuery, query, langCode)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search words: %w", err)
 	}
@@ -156,48 +156,49 @@ func (r *DictionaryRepo) AddWordToUser(ctx context.Context, userID, wordID uuid.
 
 // GetLessonWords выбирает слова по алгоритму: 2 новых, 5 сложных, 3 на повторение.
 // Все выборки происходят ТОЛЬКО из добавленных пользователем слов (user_progress).
-func (r *DictionaryRepo) GetLessonWords(ctx context.Context, userID uuid.UUID) ([]modelsDB.LessonWordDB, error) {
+func (r *DictionaryRepo) GetLessonWords(ctx context.Context, userID uuid.UUID, langCode string) ([]modelsDB.LessonWordDB, error) {
 	query := `
 	WITH 
 	new_words AS (
-		-- 1. Новые: добавлены в "Мои слова", но еще не выучены и не тренировались (чистый прогресс)
+		-- 1. Новые
 		SELECT d.id, d.original, d.translation, d.transcription, 
-		       d.pos, d.level, d.past_simple_singular, d.past_simple_plural, d.past_participle_singular, d.past_participle_plural, d.synonyms,
+		       d.pos, d.level, d.past_simple_singular, d.past_simple_plural, d.past_participle_singular, d.past_participle_plural, d.synonyms, d.lang_code, d.grammar, d.examples,
 		       up.user_id, up.is_learned, up.correct_streak, up.difficulty_level,
 		       up.custom_translation, up.custom_transcription
 		FROM dictionary d
 		JOIN user_progress up ON d.id = up.word_id
-		WHERE up.user_id = $1 
+		WHERE up.user_id = $1 AND d.lang_code = $2
 		  AND up.is_learned = false 
 		  AND up.total_mistakes = 0 
 		  AND up.correct_streak = 0
-		ORDER BY up.last_seen ASC -- Берем те, что были добавлены давным-давно (FIFO)
+		ORDER BY up.last_seen ASC
 		LIMIT 2
 	),
 	hard_words AS (
-		-- 2. Сложные/В процессе: не выучены, но уже была попытка (есть ошибки или стрик)
+		-- 2. Сложные
 		SELECT d.id, d.original, d.translation, d.transcription, 
-		       d.pos, d.level, d.past_simple_singular, d.past_simple_plural, d.past_participle_singular, d.past_participle_plural, d.synonyms,
+		       d.pos, d.level, d.past_simple_singular, d.past_simple_plural, d.past_participle_singular, d.past_participle_plural, d.synonyms, d.lang_code, d.grammar, d.examples,
 		       up.user_id, up.is_learned, up.correct_streak, up.difficulty_level,
 		       up.custom_translation, up.custom_transcription
 		FROM dictionary d
 		JOIN user_progress up ON d.id = up.word_id
-		WHERE up.user_id = $1 
+		WHERE up.user_id = $1 AND d.lang_code = $2
 		  AND up.is_learned = false
 		  AND (up.total_mistakes > 0 OR up.correct_streak > 0)
 		ORDER BY up.difficulty_level DESC, up.last_seen ASC 
 		LIMIT 5
 	),
 	review_words AS (
-		-- 3. Повторение: уже выучены
+		-- 3. Повторение
 		SELECT d.id, d.original, d.translation, d.transcription, 
-		       d.pos, d.level, d.past_simple_singular, d.past_simple_plural, d.past_participle_singular, d.past_participle_plural, d.synonyms,
+		       d.pos, d.level, d.past_simple_singular, d.past_simple_plural, d.past_participle_singular, d.past_participle_plural, d.synonyms, d.lang_code, d.grammar, d.examples,
 		       up.user_id, up.is_learned, up.correct_streak, up.difficulty_level,
 		       up.custom_translation, up.custom_transcription
 		FROM dictionary d
 		JOIN user_progress up ON d.id = up.word_id
-		WHERE up.user_id = $1 AND up.is_learned = true
-		ORDER BY up.last_seen ASC -- Давно не повторяли
+		WHERE up.user_id = $1 AND d.lang_code = $2
+		  AND up.is_learned = true
+		ORDER BY up.last_seen ASC
 		LIMIT 3
 	)
 	SELECT * FROM new_words
@@ -208,7 +209,7 @@ func (r *DictionaryRepo) GetLessonWords(ctx context.Context, userID uuid.UUID) (
 	`
 
 	var words []modelsDB.LessonWordDB
-	err := r.db.db.SelectContext(ctx, &words, query, userID)
+	err := r.db.db.SelectContext(ctx, &words, query, userID, langCode)
 	if err != nil {
 		return nil, fmt.Errorf("failed to select lesson words: %w", err)
 	}
@@ -216,7 +217,7 @@ func (r *DictionaryRepo) GetLessonWords(ctx context.Context, userID uuid.UUID) (
 }
 
 // GetRandomWords добирает случайные слова из списка ПОЛЬЗОВАТЕЛЯ, исключая уже выбранные.
-func (r *DictionaryRepo) GetRandomWords(ctx context.Context, userID uuid.UUID, limit int, excludeIDs []uuid.UUID) ([]modelsDB.LessonWordDB, error) {
+func (r *DictionaryRepo) GetRandomWords(ctx context.Context, userID uuid.UUID, limit int, excludeIDs []uuid.UUID, langCode string) ([]modelsDB.LessonWordDB, error) {
 	if limit <= 0 {
 		return nil, nil
 	}
@@ -224,7 +225,7 @@ func (r *DictionaryRepo) GetRandomWords(ctx context.Context, userID uuid.UUID, l
 	// Важно: JOIN user_progress, чтобы брать только добавленные слова
 	query := `
 		SELECT d.id, d.original, d.translation, d.transcription, 
-		       d.pos, d.level, d.past_simple_singular, d.past_simple_plural, d.past_participle_singular, d.past_participle_plural, d.synonyms,
+		       d.pos, d.level, d.past_simple_singular, d.past_simple_plural, d.past_participle_singular, d.past_participle_plural, d.synonyms, d.lang_code, d.grammar, d.examples,
 		       up.user_id, 
 		       up.is_learned, 
 		       up.correct_streak, 
@@ -233,13 +234,13 @@ func (r *DictionaryRepo) GetRandomWords(ctx context.Context, userID uuid.UUID, l
 		       up.custom_transcription
 		FROM dictionary d
 		JOIN user_progress up ON d.id = up.word_id
-		WHERE up.user_id = ?
+		WHERE up.user_id = ? AND d.lang_code = ?
 		  AND d.id NOT IN (?)
 		ORDER BY RANDOM()
 		LIMIT ?
 	`
 
-	query, args, err := sqlx.In(query, userID, excludeIDs, limit)
+	query, args, err := sqlx.In(query, userID, langCode, excludeIDs, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -289,33 +290,33 @@ func (r *DictionaryRepo) DeleteUserProgress(ctx context.Context, userID, wordID 
 	return err
 }
 
-func (r *DictionaryRepo) AddWordsByLevel(ctx context.Context, userID uuid.UUID, level string) (int64, error) {
+func (r *DictionaryRepo) AddWordsByLevel(ctx context.Context, userID uuid.UUID, level, langCode string) (int64, error) {
 	// Insert all words with the given level into user_progress if they don't exist
 	query := `
 		INSERT INTO user_progress (user_id, word_id, is_learned, correct_streak, total_mistakes, difficulty_level, last_seen)
 		SELECT $1, id, false, 0, 0, 0.0, $3
 		FROM dictionary
-		WHERE level = $2
+		WHERE level = $2 AND lang_code = $4
 		ON CONFLICT (user_id, word_id) DO NOTHING
 	`
-	result, err := r.db.db.ExecContext(ctx, query, userID, level, time.Now())
+	result, err := r.db.db.ExecContext(ctx, query, userID, level, time.Now(), langCode)
 	if err != nil {
 		return 0, err
 	}
 	return result.RowsAffected()
 }
 
-func (r *DictionaryRepo) GetProgressStats(ctx context.Context, userID uuid.UUID) (map[string]float64, float64, error) {
+func (r *DictionaryRepo) GetProgressStats(ctx context.Context, userID uuid.UUID, langCode string) (map[string]float64, float64, error) {
 	query := `
 		SELECT 
 			level,
 			COALESCE(COUNT(*) FILTER (WHERE is_learned = true)::float / NULLIF(COUNT(*), 0)::float * 100, 0) as percent
 		FROM dictionary d
 		JOIN user_progress up ON d.id = up.word_id
-		WHERE up.user_id = $1
+		WHERE up.user_id = $1 AND d.lang_code = $2
 		GROUP BY level
 	`
-	rows, err := r.db.db.QueryContext(ctx, query, userID)
+	rows, err := r.db.db.QueryContext(ctx, query, userID, langCode)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -339,10 +340,11 @@ func (r *DictionaryRepo) GetProgressStats(ctx context.Context, userID uuid.UUID)
 	var totalPercent float64
 	totalQuery := `
 		SELECT COALESCE(COUNT(*) FILTER (WHERE is_learned = true)::float / NULLIF(COUNT(*), 0)::float * 100, 0)
-		FROM user_progress
-		WHERE user_id = $1
+		FROM user_progress up
+		JOIN dictionary d ON up.word_id = d.id
+		WHERE up.user_id = $1 AND d.lang_code = $2
 	`
-	err = r.db.db.GetContext(ctx, &totalPercent, totalQuery, userID)
+	err = r.db.db.GetContext(ctx, &totalPercent, totalQuery, userID, langCode)
 	return byLevel, totalPercent, err
 }
 

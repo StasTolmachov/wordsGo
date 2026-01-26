@@ -461,6 +461,28 @@ button:disabled {
     margin: 8px 0;
 }
 
+.word-full-details .grammar {
+    font-size: 0.9em;
+    color: #555;
+    margin: 8px 0;
+    font-style: italic;
+}
+
+.word-full-details .examples {
+    margin-top: 10px;
+    font-size: 0.9em;
+}
+
+.word-full-details .examples ul {
+    margin: 5px 0 0 20px;
+    padding: 0;
+    color: #444;
+}
+
+.word-full-details .examples li {
+    margin-bottom: 4px;
+}
+
 .word-full-details .verb-forms {
     font-size: 0.85em;
     background: rgba(0,0,0,0.03);

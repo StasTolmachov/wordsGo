@@ -18,6 +18,9 @@ type DictionaryDB struct {
 	PastParticipleSingular string    `db:"past_participle_singular"`
 	PastParticiplePlural   string    `db:"past_participle_plural"`
 	Synonyms               string    `db:"synonyms"`
+	LangCode               string    `db:"lang_code"`
+	Grammar                *string   `db:"grammar"`
+	Examples               []byte    `db:"examples"`
 }
 
 type UserWordDB struct {
@@ -51,6 +54,9 @@ type LessonWordDB struct {
 	PastParticipleSingular string    `db:"past_participle_singular"`
 	PastParticiplePlural   string    `db:"past_participle_plural"`
 	Synonyms               string    `db:"synonyms"`
+	LangCode               string    `db:"lang_code"`
+	Grammar                *string   `db:"grammar"`
+	Examples               []byte    `db:"examples"`
 
 	// Поля из user_progress (могут быть NULL для новых слов)
 	UserID          *uuid.UUID `db:"user_id"`

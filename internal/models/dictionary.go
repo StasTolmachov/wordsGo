@@ -1,23 +1,44 @@
 package models
 
-import "wordsGo/internal/repository/modelsDB"
+import (
+	"encoding/json"
+	"wordsGo/internal/repository/modelsDB"
+)
+
+type Example struct {
+	Text        string `json:"text"`
+	Translation string `json:"translation"`
+}
 
 type DictionaryWord struct {
-	ID                     string `json:"id"`
-	Original               string `json:"original"`
-	Translation            string `json:"translation"`
-	Transcription          string `json:"transcription"`
-	Pos                    string `json:"pos"`
-	Level                  string `json:"level"`
-	PastSimpleSingular     string `json:"past_simple_singular,omitempty"`
-	PastSimplePlural       string `json:"past_simple_plural,omitempty"`
-	PastParticipleSingular string `json:"past_participle_singular,omitempty"`
-	PastParticiplePlural   string `json:"past_participle_plural,omitempty"`
-	Synonyms               string `json:"synonyms,omitempty"`
+	ID                     string    `json:"id"`
+	Original               string    `json:"original"`
+	Translation            string    `json:"translation"`
+	Transcription          string    `json:"transcription"`
+	Pos                    string    `json:"pos"`
+	Level                  string    `json:"level"`
+	PastSimpleSingular     string    `json:"past_simple_singular,omitempty"`
+	PastSimplePlural       string    `json:"past_simple_plural,omitempty"`
+	PastParticipleSingular string    `json:"past_participle_singular,omitempty"`
+	PastParticiplePlural   string    `json:"past_participle_plural,omitempty"`
+	Synonyms               string    `json:"synonyms,omitempty"`
+	LangCode               string    `json:"lang_code,omitempty"`
+	Grammar                string    `json:"grammar,omitempty"`
+	Examples               []Example `json:"examples,omitempty"`
 }
 
 // Конвертер из JSON-модели в DB-модель
 func ToDictionaryDB(word DictionaryWord) modelsDB.DictionaryDB {
+	var grammar *string
+	if word.Grammar != "" {
+		grammar = &word.Grammar
+	}
+
+	var examples []byte
+	if len(word.Examples) > 0 {
+		examples, _ = json.Marshal(word.Examples)
+	}
+
 	return modelsDB.DictionaryDB{
 		Original:               word.Original,
 		Translation:            word.Translation,
@@ -29,10 +50,23 @@ func ToDictionaryDB(word DictionaryWord) modelsDB.DictionaryDB {
 		PastParticipleSingular: word.PastParticipleSingular,
 		PastParticiplePlural:   word.PastParticiplePlural,
 		Synonyms:               word.Synonyms,
+		LangCode:               word.LangCode,
+		Grammar:                grammar,
+		Examples:               examples,
 	}
 }
 
 func FromDictionaryDB(word *modelsDB.DictionaryDB) *DictionaryWord {
+	grammar := ""
+	if word.Grammar != nil {
+		grammar = *word.Grammar
+	}
+
+	var examples []Example
+	if len(word.Examples) > 0 {
+		_ = json.Unmarshal(word.Examples, &examples)
+	}
+
 	return &DictionaryWord{
 		ID:                     word.ID.String(),
 		Original:               word.Original,
@@ -45,6 +79,9 @@ func FromDictionaryDB(word *modelsDB.DictionaryDB) *DictionaryWord {
 		PastParticipleSingular: word.PastParticipleSingular,
 		PastParticiplePlural:   word.PastParticiplePlural,
 		Synonyms:               word.Synonyms,
+		LangCode:               word.LangCode,
+		Grammar:                grammar,
+		Examples:               examples,
 	}
 }
 
@@ -82,19 +119,21 @@ type ListOfWordsResponse struct {
 
 // WordResponse описывает слово, которое отправляется клиенту для урока.
 type WordResponse struct {
-	ID                     string  `json:"id"`
-	Original               string  `json:"original"`
-	Translation            string  `json:"translation"`
-	Transcription          string  `json:"transcription,omitempty"`
-	Pos                    string  `json:"pos,omitempty"`
-	Level                  string  `json:"level,omitempty"`
-	PastSimpleSingular     string  `json:"past_simple_singular,omitempty"`
-	PastSimplePlural       string  `json:"past_simple_plural,omitempty"`
-	PastParticipleSingular string  `json:"past_participle_singular,omitempty"`
-	PastParticiplePlural   string  `json:"past_participle_plural,omitempty"`
-	Synonyms               string  `json:"synonyms,omitempty"`
-	DifficultyLevel        float64 `json:"difficulty_level"`
-	IsLearned              bool    `json:"is_learned"`
+	ID                     string    `json:"id"`
+	Original               string    `json:"original"`
+	Translation            string    `json:"translation"`
+	Transcription          string    `json:"transcription,omitempty"`
+	Pos                    string    `json:"pos,omitempty"`
+	Level                  string    `json:"level,omitempty"`
+	PastSimpleSingular     string    `json:"past_simple_singular,omitempty"`
+	PastSimplePlural       string    `json:"past_simple_plural,omitempty"`
+	PastParticipleSingular string    `json:"past_participle_singular,omitempty"`
+	PastParticiplePlural   string    `json:"past_participle_plural,omitempty"`
+	Synonyms               string    `json:"synonyms,omitempty"`
+	Grammar                string    `json:"grammar,omitempty"`
+	Examples               []Example `json:"examples,omitempty"`
+	DifficultyLevel        float64   `json:"difficulty_level"`
+	IsLearned              bool      `json:"is_learned"`
 }
 
 // LessonResponse содержит список слов для локального цикла на клиенте.

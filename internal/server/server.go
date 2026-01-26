@@ -35,14 +35,14 @@ func Run(cfg config.Config) {
 		log.Fatal("Failed to sync admin user:", err)
 	}
 
-	dictPath := os.Getenv("DICTIONARY_PATH")
-	if dictPath == "" {
-		dictPath = "eng-rus_Google_v4.json"
+	dictPathEn := "eng-rus_Google_v4.json"
+	if err := dictionaryService.LoadDictionary(ctxBG, dictPathEn, "en"); err != nil {
+		log.Printf("Failed to load EN dictionary: %v", err)
 	}
 
-	if err := dictionaryService.LoadDictionary(ctxBG, dictPath); err != nil {
-		log.Printf("Failed to load dictionary: %v", err)
-		// Решите, нужно ли падать (log.Fatal) или просто логировать ошибку
+	dictPathNo := "nor-rus_Norwegian-CU_v1_0.json"
+	if err := dictionaryService.LoadDictionary(ctxBG, dictPathNo, "no"); err != nil {
+		log.Printf("Failed to load NO dictionary: %v", err)
 	}
 
 	userHandler := handlers.NewHandler(userService, dictionaryService)

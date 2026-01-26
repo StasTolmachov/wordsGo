@@ -22,13 +22,13 @@ func (m *MockDictionaryRepo) DictionaryInsert(ctx context.Context, dictionary []
 	return args.Error(0)
 }
 
-func (m *MockDictionaryRepo) GetWords(ctx context.Context, userID uuid.UUID, filter, order string, pagination modelsDB.Pagination) ([]modelsDB.UserWordDB, uint64, error) {
-	args := m.Called(ctx, userID, filter, order, pagination)
+func (m *MockDictionaryRepo) GetWords(ctx context.Context, userID uuid.UUID, langCode, filter, order string, pagination modelsDB.Pagination) ([]modelsDB.UserWordDB, uint64, error) {
+	args := m.Called(ctx, userID, langCode, filter, order, pagination)
 	return args.Get(0).([]modelsDB.UserWordDB), args.Get(1).(uint64), args.Error(2)
 }
 
-func (m *MockDictionaryRepo) SearchByOriginal(ctx context.Context, query string) ([]modelsDB.DictionaryDB, error) {
-	args := m.Called(ctx, query)
+func (m *MockDictionaryRepo) SearchByOriginal(ctx context.Context, query, langCode string) ([]modelsDB.DictionaryDB, error) {
+	args := m.Called(ctx, query, langCode)
 	return args.Get(0).([]modelsDB.DictionaryDB), args.Error(1)
 }
 
@@ -37,13 +37,13 @@ func (m *MockDictionaryRepo) AddWordToUser(ctx context.Context, userID, wordID u
 	return args.Error(0)
 }
 
-func (m *MockDictionaryRepo) GetLessonWords(ctx context.Context, userID uuid.UUID) ([]modelsDB.LessonWordDB, error) {
-	args := m.Called(ctx, userID)
+func (m *MockDictionaryRepo) GetLessonWords(ctx context.Context, userID uuid.UUID, langCode string) ([]modelsDB.LessonWordDB, error) {
+	args := m.Called(ctx, userID, langCode)
 	return args.Get(0).([]modelsDB.LessonWordDB), args.Error(1)
 }
 
-func (m *MockDictionaryRepo) GetRandomWords(ctx context.Context, userID uuid.UUID, limit int, excludeIDs []uuid.UUID) ([]modelsDB.LessonWordDB, error) {
-	args := m.Called(ctx, userID, limit, excludeIDs)
+func (m *MockDictionaryRepo) GetRandomWords(ctx context.Context, userID uuid.UUID, limit int, excludeIDs []uuid.UUID, langCode string) ([]modelsDB.LessonWordDB, error) {
+	args := m.Called(ctx, userID, limit, excludeIDs, langCode)
 	return args.Get(0).([]modelsDB.LessonWordDB), args.Error(1)
 }
 
@@ -70,13 +70,13 @@ func (m *MockDictionaryRepo) DeleteAllUserProgress(ctx context.Context, userID u
 	return args.Error(0)
 }
 
-func (m *MockDictionaryRepo) AddWordsByLevel(ctx context.Context, userID uuid.UUID, level string) (int64, error) {
-	args := m.Called(ctx, userID, level)
+func (m *MockDictionaryRepo) AddWordsByLevel(ctx context.Context, userID uuid.UUID, level, langCode string) (int64, error) {
+	args := m.Called(ctx, userID, level, langCode)
 	return args.Get(0).(int64), args.Error(1)
 }
 
-func (m *MockDictionaryRepo) GetProgressStats(ctx context.Context, userID uuid.UUID) (map[string]float64, float64, error) {
-	args := m.Called(ctx, userID)
+func (m *MockDictionaryRepo) GetProgressStats(ctx context.Context, userID uuid.UUID, langCode string) (map[string]float64, float64, error) {
+	args := m.Called(ctx, userID, langCode)
 	return args.Get(0).(map[string]float64), args.Get(1).(float64), args.Error(2)
 }
 
@@ -113,7 +113,7 @@ func TestProcessAnswer_Correct(t *testing.T) {
 		IsCorrect: true,
 	}
 
-	resp, err := service.ProcessAnswer(context.Background(), userID, req)
+	resp, err := service.ProcessAnswer(context.Background(), userID, req, "en")
 
 	assert.NoError(t, err)
 	assert.Equal(t, 2, resp.CorrectStreak)
@@ -148,7 +148,7 @@ func TestProcessAnswer_Incorrect(t *testing.T) {
 		IsCorrect: false,
 	}
 
-	resp, err := service.ProcessAnswer(context.Background(), userID, req)
+	resp, err := service.ProcessAnswer(context.Background(), userID, req, "en")
 
 	assert.NoError(t, err)
 	assert.Equal(t, 0, resp.CorrectStreak)

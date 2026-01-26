@@ -820,6 +820,15 @@ function displayQuestion() {
                     ${currentWord.level ? `<span class="tag level">${decodeHTML(currentWord.level)}</span>` : ''}
                 </div>
                 ${currentWord.synonyms ? `<div class="synonyms"><strong>Synonyms:</strong> ${decodeHTML(currentWord.synonyms)}</div>` : ''}
+                ${currentWord.grammar ? `<div class="grammar"><strong>Grammar:</strong> ${decodeHTML(currentWord.grammar)}</div>` : ''}
+                ${currentWord.examples && currentWord.examples.length > 0 ? `
+                    <div class="examples">
+                        <strong>Examples:</strong>
+                        <ul>
+                            ${currentWord.examples.map(ex => `<li>${decodeHTML(ex.text)} - <em>${decodeHTML(ex.translation)}</em></li>`).join('')}
+                        </ul>
+                    </div>
+                ` : ''}
                 ${currentWord.past_simple_singular || currentWord.past_simple_plural || currentWord.past_participle_singular || currentWord.past_participle_plural ? `
                     <div class="verb-forms">
                         ${currentWord.past_simple_singular ? `<div><strong>Past Simple (s):</strong> ${decodeHTML(currentWord.past_simple_singular)}</div>` : ''}

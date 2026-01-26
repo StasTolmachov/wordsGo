@@ -17,15 +17,15 @@ import (
 )
 
 type DictionaryService interface {
-	LoadDictionary(ctx context.Context, path string) error
-	GetWords(ctx context.Context, userID uuid.UUID, filter string, limit, page uint64, order string) (*models.ListOfWordsResponse, error)
-	SearchWords(ctx context.Context, query string) ([]*models.DictionaryWord, error)
-	AddWordToLearning(ctx context.Context, userID uuid.UUID, wordIDStr string) error
-	AddWordsByLevel(ctx context.Context, userID uuid.UUID, level string) (int64, error)
+	LoadDictionary(ctx context.Context, path, langCode string) error
+	GetWords(ctx context.Context, userID uuid.UUID, langCode, filter string, limit, page uint64, order string) (*models.ListOfWordsResponse, error)
+	SearchWords(ctx context.Context, query, langCode string) ([]*models.DictionaryWord, error)
+	AddWordToLearning(ctx context.Context, userID uuid.UUID, wordIDStr, langCode string) error
+	AddWordsByLevel(ctx context.Context, userID uuid.UUID, level, langCode string) (int64, error)
 	DeleteWordFromLearning(ctx context.Context, userID uuid.UUID, wordIDStr string) error
 	UpdateWordDetails(ctx context.Context, userID uuid.UUID, wordIDStr string, req models.UpdateWordRequest) error
-	GenerateLesson(ctx context.Context, userID uuid.UUID) (*models.LessonResponse, error)
-	ProcessAnswer(ctx context.Context, userID uuid.UUID, req models.SubmitAnswerRequest) (*models.SubmitAnswerResponse, error)
+	GenerateLesson(ctx context.Context, userID uuid.UUID, langCode string) (*models.LessonResponse, error)
+	ProcessAnswer(ctx context.Context, userID uuid.UUID, req models.SubmitAnswerRequest, langCode string) (*models.SubmitAnswerResponse, error)
 	MarkAsLearned(ctx context.Context, userID uuid.UUID, wordIDStr string) error
 	ResetProgress(ctx context.Context, userID uuid.UUID) error
 }
@@ -49,7 +49,7 @@ func (s *dictionaryService) ResetProgress(ctx context.Context, userID uuid.UUID)
 	return nil
 }
 
-func (s *dictionaryService) LoadDictionary(ctx context.Context, path string) error {
+func (s *dictionaryService) LoadDictionary(ctx context.Context, path, langCode string) error {
 	// 1. Проверяем наличие файла
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		slogger.Log.WarnContext(ctx, "Dictionary file not found, skipping", "path", path)
@@ -62,20 +62,74 @@ func (s *dictionaryService) LoadDictionary(ctx context.Context, path string) err
 		return fmt.Errorf("failed to read file: %w", err)
 	}
 
-	// 3. Парсим JSON
-	var words []models.DictionaryWord
-	if err := json.Unmarshal(byteValue, &words); err != nil {
-		return fmt.Errorf("failed to unmarshal json: %w", err)
+	var dbWords []modelsDB.DictionaryDB
+
+	if langCode == "no" {
+		var words []struct {
+			ID            string  `json:"id"`
+			Word          string  `json:"word"`
+			Transcription string  `json:"transcription"`
+			Grammar       string  `json:"grammar"`
+			PartsOfSpeech *string `json:"parts_of_speech"`
+			Meanings      []struct {
+				Definition string `json:"definition"`
+				Examples   []struct {
+					Text        string `json:"text"`
+					Translation string `json:"translation"`
+				} `json:"examples"`
+			} `json:"meanings"`
+		}
+		if err := json.Unmarshal(byteValue, &words); err != nil {
+			return fmt.Errorf("failed to unmarshal json: %w", err)
+		}
+
+		for _, w := range words {
+			if len(w.Meanings) == 0 {
+				continue
+			}
+
+			// Map to Examples
+			var examples []models.Example
+			if len(w.Meanings[0].Examples) > 0 {
+				for _, ex := range w.Meanings[0].Examples {
+					examples = append(examples, models.Example{
+						Text:        ex.Text,
+						Translation: ex.Translation,
+					})
+				}
+			}
+
+			modelWord := models.DictionaryWord{
+				Original:      w.Word,
+				Translation:   w.Meanings[0].Definition,
+				Transcription: w.Transcription,
+				Pos:           "",
+				LangCode:      langCode,
+				Grammar:       w.Grammar,
+				Examples:      examples,
+			}
+			if w.PartsOfSpeech != nil {
+				modelWord.Pos = *w.PartsOfSpeech
+			}
+
+			dbWords = append(dbWords, models.ToDictionaryDB(modelWord))
+		}
+
+	} else {
+		// Default to English format
+		var words []models.DictionaryWord
+		if err := json.Unmarshal(byteValue, &words); err != nil {
+			return fmt.Errorf("failed to unmarshal json: %w", err)
+		}
+
+		for _, w := range words {
+			w.LangCode = langCode // Enforce lang code
+			dbWords = append(dbWords, models.ToDictionaryDB(w))
+		}
 	}
 
-	if len(words) == 0 {
+	if len(dbWords) == 0 {
 		return nil
-	}
-
-	// 4. Конвертируем в DB-модели
-	dbWords := make([]modelsDB.DictionaryDB, 0, len(words))
-	for _, w := range words {
-		dbWords = append(dbWords, models.ToDictionaryDB(w))
 	}
 
 	// 5. Сохраняем в БД через репозиторий
@@ -83,11 +137,11 @@ func (s *dictionaryService) LoadDictionary(ctx context.Context, path string) err
 		return fmt.Errorf("service failed to insert dictionary: %w", err)
 	}
 
-	slogger.Log.InfoContext(ctx, "Dictionary loaded successfully", "count", len(dbWords))
+	slogger.Log.InfoContext(ctx, "Dictionary loaded successfully", "count", len(dbWords), "lang", langCode)
 	return nil
 }
 
-func (s *dictionaryService) GetWords(ctx context.Context, userID uuid.UUID, filter string, limit, page uint64, order string) (*models.ListOfWordsResponse, error) {
+func (s *dictionaryService) GetWords(ctx context.Context, userID uuid.UUID, langCode, filter string, limit, page uint64, order string) (*models.ListOfWordsResponse, error) {
 
 	if limit == 0 {
 		limit = 10
@@ -101,7 +155,7 @@ func (s *dictionaryService) GetWords(ctx context.Context, userID uuid.UUID, filt
 		Limit:  limit,
 		Offset: offset,
 	}
-	wordsDB, total, err := s.repo.GetWords(ctx, userID, filter, order, *pagination)
+	wordsDB, total, err := s.repo.GetWords(ctx, userID, langCode, filter, order, *pagination)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +186,7 @@ func (s *dictionaryService) GetWords(ctx context.Context, userID uuid.UUID, filt
 		Data:  wordsResponse,
 	}
 
-	byLevel, totalProgress, err := s.repo.GetProgressStats(ctx, userID)
+	byLevel, totalProgress, err := s.repo.GetProgressStats(ctx, userID, langCode)
 	if err == nil {
 		resp.Progress = models.ProgressStats{
 			Total:   totalProgress,
@@ -143,8 +197,8 @@ func (s *dictionaryService) GetWords(ctx context.Context, userID uuid.UUID, filt
 	return resp, nil
 }
 
-func (s *dictionaryService) SearchWords(ctx context.Context, query string) ([]*models.DictionaryWord, error) {
-	wordsDB, err := s.repo.SearchByOriginal(ctx, query)
+func (s *dictionaryService) SearchWords(ctx context.Context, query, langCode string) ([]*models.DictionaryWord, error) {
+	wordsDB, err := s.repo.SearchByOriginal(ctx, query, langCode)
 	if err != nil {
 		return nil, err
 	}
@@ -156,13 +210,13 @@ func (s *dictionaryService) SearchWords(ctx context.Context, query string) ([]*m
 	}
 	return result, nil
 }
-func (s *dictionaryService) AddWordToLearning(ctx context.Context, userID uuid.UUID, wordIDStr string) error {
+func (s *dictionaryService) AddWordToLearning(ctx context.Context, userID uuid.UUID, wordIDStr, langCode string) error {
 	// 1. Валидация UUID
 	wordID, err := uuid.Parse(wordIDStr)
 	if err != nil {
 		// Если не UUID, пробуем найти слово по 'original' и получить его ID
 		slogger.Log.DebugContext(ctx, "wordID is not a UUID, searching by original", "word", wordIDStr)
-		words, searchErr := s.repo.SearchByOriginal(ctx, wordIDStr)
+		words, searchErr := s.repo.SearchByOriginal(ctx, wordIDStr, langCode)
 		if searchErr != nil || len(words) == 0 {
 			return fmt.Errorf("invalid word id format: %w", err)
 		}
@@ -181,8 +235,8 @@ func (s *dictionaryService) AddWordToLearning(ctx context.Context, userID uuid.U
 	return nil
 }
 
-func (s *dictionaryService) AddWordsByLevel(ctx context.Context, userID uuid.UUID, level string) (int64, error) {
-	count, err := s.repo.AddWordsByLevel(ctx, userID, level)
+func (s *dictionaryService) AddWordsByLevel(ctx context.Context, userID uuid.UUID, level, langCode string) (int64, error) {
+	count, err := s.repo.AddWordsByLevel(ctx, userID, level, langCode)
 	if err != nil {
 		return 0, fmt.Errorf("failed to bulk add words: %w", err)
 	}
@@ -240,9 +294,9 @@ func (s *dictionaryService) UpdateWordDetails(ctx context.Context, userID uuid.U
 }
 
 // GenerateLesson создает набор слов для "бесконечного" урока.
-func (s *dictionaryService) GenerateLesson(ctx context.Context, userID uuid.UUID) (*models.LessonResponse, error) {
+func (s *dictionaryService) GenerateLesson(ctx context.Context, userID uuid.UUID, langCode string) (*models.LessonResponse, error) {
 	// 1. Пытаемся получить "умный" набор
-	wordsDB, err := s.repo.GetLessonWords(ctx, userID)
+	wordsDB, err := s.repo.GetLessonWords(ctx, userID, langCode)
 	if err != nil {
 		return nil, err
 	}
@@ -263,7 +317,7 @@ func (s *dictionaryService) GenerateLesson(ctx context.Context, userID uuid.UUID
 		}
 
 		needed := targetCount - len(wordsDB)
-		randomWords, err := s.repo.GetRandomWords(ctx, userID, needed, excludeIDs)
+		randomWords, err := s.repo.GetRandomWords(ctx, userID, needed, excludeIDs, langCode)
 		if err == nil {
 			wordsDB = append(wordsDB, randomWords...)
 		}
@@ -284,6 +338,16 @@ func (s *dictionaryService) GenerateLesson(ctx context.Context, userID uuid.UUID
 			translation = *w.CustomTranslation
 		}
 
+		var examples []models.Example
+		if len(w.Examples) > 0 {
+			_ = json.Unmarshal(w.Examples, &examples)
+		}
+
+		grammar := ""
+		if w.Grammar != nil {
+			grammar = *w.Grammar
+		}
+
 		respWords[i] = models.WordResponse{
 			ID:                     w.ID.String(),
 			Original:               w.Original,
@@ -296,6 +360,8 @@ func (s *dictionaryService) GenerateLesson(ctx context.Context, userID uuid.UUID
 			PastParticipleSingular: w.PastParticipleSingular,
 			PastParticiplePlural:   w.PastParticiplePlural,
 			Synonyms:               w.Synonyms,
+			Grammar:                grammar,
+			Examples:               examples,
 			DifficultyLevel:        w.DifficultyLevel,
 			IsLearned:              w.IsLearned,
 		}
@@ -305,12 +371,12 @@ func (s *dictionaryService) GenerateLesson(ctx context.Context, userID uuid.UUID
 }
 
 // ProcessAnswer обрабатывает ответ пользователя и обновляет математику сложности.
-func (s *dictionaryService) ProcessAnswer(ctx context.Context, userID uuid.UUID, req models.SubmitAnswerRequest) (*models.SubmitAnswerResponse, error) {
+func (s *dictionaryService) ProcessAnswer(ctx context.Context, userID uuid.UUID, req models.SubmitAnswerRequest, langCode string) (*models.SubmitAnswerResponse, error) {
 	wordID, err := uuid.Parse(req.WordID)
 	if err != nil {
 		// Если не UUID, пробуем найти слово по 'original' и получить его ID
 		slogger.Log.DebugContext(ctx, "wordID is not a UUID in ProcessAnswer, searching by original", "word", req.WordID)
-		words, searchErr := s.repo.SearchByOriginal(ctx, req.WordID)
+		words, searchErr := s.repo.SearchByOriginal(ctx, req.WordID, langCode)
 		if searchErr != nil || len(words) == 0 {
 			return nil, err
 		}

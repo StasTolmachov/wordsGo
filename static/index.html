@@ -49,8 +49,15 @@
                                 <li id="req-special">One special character</li>
                             </ul>
                         </div>
-                        <input type="text" id="reg-sourcelang" placeholder="Source Language (e.g. en)" required>
-                        <input type="text" id="reg-targetlang" placeholder="Target Language (e.g. ru)" required>
+                        <select id="reg-sourcelang" required>
+                            <option value="" disabled selected>Select Native Language</option>
+                            <option value="ru">Russian (Русский)</option>
+                        </select>
+                        <select id="reg-targetlang" required>
+                            <option value="" disabled selected>Select Language to Learn</option>
+                            <option value="en">English</option>
+                            <option value="no">Norwegian</option>
+                        </select>
                         <button type="submit">Register</button>
                     </form>
                     <p>Already have an account? <button id="show-login">Login</button></p>
