@@ -20,8 +20,51 @@
         </header>
 
         <main>
+            <!-- Landing Page -->
+            <section id="landing-page">
+                <div class="hero">
+                    <h2>Welcome to wordsGo!</h2>
+                    <p class="subtitle">Your personal companion for mastering new vocabulary efficiently.</p>
+                    
+                    <div class="landing-actions">
+                        <button id="landing-login-btn" class="secondary-btn">Log In</button>
+                        <button id="landing-register-btn" class="primary-btn">Get Started</button>
+                    </div>
+                </div>
+
+                <div class="features">
+                    <h3>Why use wordsGo?</h3>
+                    <ul class="feature-list">
+                        <li><strong>Smart Learning:</strong> Add words to your personal dictionary and learn them using our spaced repetition system.</li>
+                        <li><strong>Contextual details:</strong> Get transcriptions, translations, synonyms, and verb forms automatically.</li>
+                        <li><strong>Track Progress:</strong> Monitor your learning stats and watch your vocabulary grow.</li>
+                    </ul>
+                </div>
+
+                <div class="how-it-works">
+                    <h3>How it works</h3>
+                    <ol class="steps-list">
+                        <li><strong>Register:</strong> Create a free account to start saving your progress. Registration is required to keep your personal word list synchronized across devices.</li>
+                        <li><strong>Add Words:</strong> Search our dictionary for specific words or add entire sets based on CEFR levels (A1 to C2).</li>
+                        <li><strong>Learn:</strong> Start interactive lessons. The system will track your answers and focus on words you find difficult.</li>
+                        <li><strong>Master:</strong> Reach a 100% progress score to consider a word "Mastered".</li>
+                    </ol>
+                </div>
+
+                <div class="cta-bottom">
+                    <h3>Ready to expand your vocabulary?</h3>
+                    <button id="landing-register-bottom-btn" class="primary-btn">Create Free Account</button>
+                    <p><small>Join our community of learners today!</small></p>
+                </div>
+
+                <footer>
+                    <p>&copy; 2026 wordsGo - Learn smarter, not harder.</p>
+                </footer>
+            </section>
+
             <!-- Auth Section -->
-            <section id="auth-section">
+            <section id="auth-section" class="hidden">
+                <button id="back-to-landing" class="text-btn">← Back to Home</button>
                 <div id="login-form-container">
                     <h2>Login</h2>
                     <form id="login-form">
