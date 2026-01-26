@@ -40,10 +40,17 @@ type WordsDBWithTotal struct {
 
 // LessonWordDB используется для выборки слов для урока (JOIN dictionary + user_progress).
 type LessonWordDB struct {
-	ID            uuid.UUID `db:"id"`
-	Original      string    `db:"original"`
-	Translation   string    `db:"translation"`
-	Transcription *string   `db:"transcription"` // Pointer, т.к. может быть NULL
+	ID                     uuid.UUID `db:"id"`
+	Original               string    `db:"original"`
+	Translation            string    `db:"translation"`
+	Transcription          *string   `db:"transcription"` // Pointer, т.к. может быть NULL
+	Pos                    string    `db:"pos"`
+	Level                  string    `db:"level"`
+	PastSimpleSingular     string    `db:"past_simple_singular"`
+	PastSimplePlural       string    `db:"past_simple_plural"`
+	PastParticipleSingular string    `db:"past_participle_singular"`
+	PastParticiplePlural   string    `db:"past_participle_plural"`
+	Synonyms               string    `db:"synonyms"`
 
 	// Поля из user_progress (могут быть NULL для новых слов)
 	UserID          *uuid.UUID `db:"user_id"`

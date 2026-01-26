@@ -285,12 +285,19 @@ func (s *dictionaryService) GenerateLesson(ctx context.Context, userID uuid.UUID
 		}
 
 		respWords[i] = models.WordResponse{
-			ID:              w.ID.String(),
-			Original:        w.Original,
-			Translation:     translation,
-			Transcription:   transcription,
-			DifficultyLevel: w.DifficultyLevel,
-			IsLearned:       w.IsLearned,
+			ID:                     w.ID.String(),
+			Original:               w.Original,
+			Translation:            translation,
+			Transcription:          transcription,
+			Pos:                    w.Pos,
+			Level:                  w.Level,
+			PastSimpleSingular:     w.PastSimpleSingular,
+			PastSimplePlural:       w.PastSimplePlural,
+			PastParticipleSingular: w.PastParticipleSingular,
+			PastParticiplePlural:   w.PastParticiplePlural,
+			Synonyms:               w.Synonyms,
+			DifficultyLevel:        w.DifficultyLevel,
+			IsLearned:              w.IsLearned,
 		}
 	}
 
