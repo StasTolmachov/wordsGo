@@ -22,8 +22,8 @@ func (m *MockDictionaryRepo) DictionaryInsert(ctx context.Context, dictionary []
 	return args.Error(0)
 }
 
-func (m *MockDictionaryRepo) GetWords(ctx context.Context, userID uuid.UUID, filter, order string, pagination modelsDB.Pagination) ([]modelsDB.UserWordDB, uint64, error) {
-	args := m.Called(ctx, userID, filter, order, pagination)
+func (m *MockDictionaryRepo) GetWords(ctx context.Context, userID uuid.UUID, filter, sortBy, order string, pagination modelsDB.Pagination) ([]modelsDB.UserWordDB, uint64, error) {
+	args := m.Called(ctx, userID, filter, sortBy, order, pagination)
 	return args.Get(0).([]modelsDB.UserWordDB), args.Get(1).(uint64), args.Error(2)
 }
 

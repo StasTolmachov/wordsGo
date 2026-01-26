@@ -69,7 +69,7 @@ type stubDictionaryService struct {
 func (s *stubDictionaryService) LoadDictionary(ctx context.Context, path string) error {
 	return nil
 }
-func (s *stubDictionaryService) GetWords(ctx context.Context, userID uuid.UUID, filter string, limit, page uint64, order string) (*models.ListOfWordsResponse, error) {
+func (s *stubDictionaryService) GetWords(ctx context.Context, userID uuid.UUID, filter, sortBy string, limit, page uint64, order string) (*models.ListOfWordsResponse, error) {
 	return nil, nil
 }
 func (s *stubDictionaryService) SearchWords(ctx context.Context, query string) ([]*models.DictionaryWord, error) {

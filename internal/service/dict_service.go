@@ -18,7 +18,7 @@ import (
 
 type DictionaryService interface {
 	LoadDictionary(ctx context.Context, path string) error
-	GetWords(ctx context.Context, userID uuid.UUID, filter string, limit, page uint64, order string) (*models.ListOfWordsResponse, error)
+	GetWords(ctx context.Context, userID uuid.UUID, filter, sortBy string, limit, page uint64, order string) (*models.ListOfWordsResponse, error)
 	SearchWords(ctx context.Context, query string) ([]*models.DictionaryWord, error)
 	AddWordToLearning(ctx context.Context, userID uuid.UUID, wordIDStr string) error
 	AddWordsByLevel(ctx context.Context, userID uuid.UUID, level string) (int64, error)
@@ -87,7 +87,7 @@ func (s *dictionaryService) LoadDictionary(ctx context.Context, path string) err
 	return nil
 }
 
-func (s *dictionaryService) GetWords(ctx context.Context, userID uuid.UUID, filter string, limit, page uint64, order string) (*models.ListOfWordsResponse, error) {
+func (s *dictionaryService) GetWords(ctx context.Context, userID uuid.UUID, filter, sortBy string, limit, page uint64, order string) (*models.ListOfWordsResponse, error) {
 
 	if limit == 0 {
 		limit = 10
@@ -101,7 +101,7 @@ func (s *dictionaryService) GetWords(ctx context.Context, userID uuid.UUID, filt
 		Limit:  limit,
 		Offset: offset,
 	}
-	wordsDB, total, err := s.repo.GetWords(ctx, userID, filter, order, *pagination)
+	wordsDB, total, err := s.repo.GetWords(ctx, userID, filter, sortBy, order, *pagination)
 	if err != nil {
 		return nil, err
 	}

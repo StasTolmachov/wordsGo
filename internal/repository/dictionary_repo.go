@@ -15,7 +15,7 @@ import (
 
 type DictionaryRepository interface {
 	DictionaryInsert(ctx context.Context, dictionary []modelsDB.DictionaryDB) error
-	GetWords(ctx context.Context, userID uuid.UUID, filter, order string, pagination modelsDB.Pagination) ([]modelsDB.UserWordDB, uint64, error)
+	GetWords(ctx context.Context, userID uuid.UUID, filter, sortBy, order string, pagination modelsDB.Pagination) ([]modelsDB.UserWordDB, uint64, error)
 	SearchByOriginal(ctx context.Context, query string) ([]modelsDB.DictionaryDB, error)
 	AddWordToUser(ctx context.Context, userID, wordID uuid.UUID) error
 	GetLessonWords(ctx context.Context, userID uuid.UUID) ([]modelsDB.LessonWordDB, error)
@@ -77,10 +77,15 @@ func (r *DictionaryRepo) DictionaryInsert(ctx context.Context, dictionary []mode
 	return tx.Commit()
 }
 
-func (r *DictionaryRepo) GetWords(ctx context.Context, userID uuid.UUID, filter, order string, pagination modelsDB.Pagination) ([]modelsDB.UserWordDB, uint64, error) {
+func (r *DictionaryRepo) GetWords(ctx context.Context, userID uuid.UUID, filter, sortBy, order string, pagination modelsDB.Pagination) ([]modelsDB.UserWordDB, uint64, error) {
 	sortOrder := "DESC"
 	if strings.ToUpper(order) == "ASC" {
 		sortOrder = "ASC"
+	}
+
+	sortField := "d.original"
+	if sortBy == "last_seen" {
+		sortField = "up.last_seen"
 	}
 
 	whereClause := "up.user_id = $1"
@@ -100,8 +105,8 @@ func (r *DictionaryRepo) GetWords(ctx context.Context, userID uuid.UUID, filter,
         FROM dictionary d
         JOIN user_progress up ON d.id = up.word_id
         WHERE %s
-        ORDER BY d.original %s
-        LIMIT $%d OFFSET $%d`, whereClause, sortOrder, argIdx, argIdx+1)
+        ORDER BY %s %s
+        LIMIT $%d OFFSET $%d`, whereClause, sortField, sortOrder, argIdx, argIdx+1)
 
 	args = append(args, pagination.Limit, pagination.Offset)
 

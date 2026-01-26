@@ -605,7 +605,7 @@ async function loadMyWords() {
     progressDiv.innerHTML = '';
 
     try {
-        const response = await fetch(`${API_URL}/words?limit=${wordsLimit}&page=${wordsPage}&q=${encodeURIComponent(myWordsSearchQuery)}`, {
+        const response = await fetch(`${API_URL}/words?limit=${wordsLimit}&page=${wordsPage}&q=${encodeURIComponent(myWordsSearchQuery)}&sort=last_seen&order=desc`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
 

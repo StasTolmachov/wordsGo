@@ -461,12 +461,13 @@ func (h *Handler) GetWords(w http.ResponseWriter, r *http.Request) {
 		order = "desc"
 	}
 
+	sortBy := r.URL.Query().Get("sort")
 	filter := r.URL.Query().Get("q")
 
 	ctx, cancel := context.WithTimeout(r.Context(), ctxWithTimeout)
 	defer cancel()
 
-	words, err := h.dict.GetWords(ctx, user.ID, filter, limit, page, order)
+	words, err := h.dict.GetWords(ctx, user.ID, filter, sortBy, limit, page, order)
 	if err != nil {
 		WriteError(w, http.StatusInternalServerError, "Failed to get words")
 		slogger.Log.ErrorContext(ctx, "Failed to get words", "err", err)
