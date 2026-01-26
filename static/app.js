@@ -15,6 +15,7 @@ let hasAttemptedCurrentWord = false;
 let lastAnswerWasCorrect = false;
 
 // DOM Elements
+const landingPage = document.getElementById('landing-page');
 const authSection = document.getElementById('auth-section');
 const dashboard = document.getElementById('dashboard');
 const loginContainer = document.getElementById('login-form-container');
@@ -25,6 +26,8 @@ const toast = document.getElementById('toast');
 // Auth Check
 if (token) {
     showDashboard();
+} else {
+    showLanding();
 }
 
 // --- Navigation & UI Helpers ---
@@ -33,14 +36,39 @@ function showSection(id) {
     ['search-container', 'words-container', 'lesson-container', 'profile-container'].forEach(s => {
         document.getElementById(s).classList.add('hidden');
     });
+    landingPage.classList.add('hidden');
+    authSection.classList.add('hidden');
     document.getElementById(id).classList.remove('hidden');
 }
 
 function showDashboard() {
+    landingPage.classList.add('hidden');
     authSection.classList.add('hidden');
     dashboard.classList.remove('hidden');
     mainNav.classList.remove('hidden');
     showSection('search-container');
+}
+
+function showLanding() {
+    dashboard.classList.add('hidden');
+    authSection.classList.add('hidden');
+    mainNav.classList.add('hidden');
+    landingPage.classList.remove('hidden');
+}
+
+function showAuth(mode = 'login') {
+    landingPage.classList.add('hidden');
+    dashboard.classList.add('hidden');
+    mainNav.classList.add('hidden');
+    authSection.classList.remove('hidden');
+    
+    if (mode === 'register') {
+        loginContainer.classList.add('hidden');
+        registerContainer.classList.remove('hidden');
+    } else {
+        registerContainer.classList.add('hidden');
+        loginContainer.classList.remove('hidden');
+    }
 }
 
 function showToast(message, type) {
@@ -65,6 +93,12 @@ function decodeHTML(html) {
 }
 
 // --- Event Listeners ---
+
+// Landing Page Events
+document.getElementById('landing-login-btn').onclick = () => showAuth('login');
+document.getElementById('landing-register-btn').onclick = () => showAuth('register');
+document.getElementById('landing-register-bottom-btn').onclick = () => showAuth('register');
+document.getElementById('back-to-landing').onclick = () => showLanding();
 
 document.getElementById('show-register').onclick = () => {
     loginContainer.classList.add('hidden');
