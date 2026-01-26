@@ -27,16 +27,26 @@ type DictionaryService interface {
 	GenerateLesson(ctx context.Context, userID uuid.UUID) (*models.LessonResponse, error)
 	ProcessAnswer(ctx context.Context, userID uuid.UUID, req models.SubmitAnswerRequest) (*models.SubmitAnswerResponse, error)
 	MarkAsLearned(ctx context.Context, userID uuid.UUID, wordIDStr string) error
+	ResetProgress(ctx context.Context, userID uuid.UUID) error
 }
 
 type dictionaryService struct {
-	repo *repository.DictionaryRepo
+	repo repository.DictionaryRepository
 }
 
-func NewDictionaryService(repo *repository.DictionaryRepo) DictionaryService {
+func NewDictionaryService(repo repository.DictionaryRepository) DictionaryService {
 	return &dictionaryService{
 		repo: repo,
 	}
+}
+
+func (s *dictionaryService) ResetProgress(ctx context.Context, userID uuid.UUID) error {
+	err := s.repo.DeleteAllUserProgress(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("failed to reset progress: %w", err)
+	}
+	slogger.Log.InfoContext(ctx, "User progress reset", "userID", userID)
+	return nil
 }
 
 func (s *dictionaryService) LoadDictionary(ctx context.Context, path string) error {
@@ -263,13 +273,21 @@ func (s *dictionaryService) GenerateLesson(ctx context.Context, userID uuid.UUID
 	respWords := make([]models.WordResponse, len(wordsDB))
 	for i, w := range wordsDB {
 		transcription := ""
-		if w.Transcription != nil {
+		if w.CustomTranscription != nil && *w.CustomTranscription != "" {
+			transcription = *w.CustomTranscription
+		} else if w.Transcription != nil {
 			transcription = *w.Transcription
 		}
+
+		translation := w.Translation
+		if w.CustomTranslation != nil && *w.CustomTranslation != "" {
+			translation = *w.CustomTranslation
+		}
+
 		respWords[i] = models.WordResponse{
 			ID:              w.ID.String(),
 			Original:        w.Original,
-			Translation:     w.Translation,
+			Translation:     translation,
 			Transcription:   transcription,
 			DifficultyLevel: w.DifficultyLevel,
 			IsLearned:       w.IsLearned,
@@ -320,6 +338,8 @@ func (s *dictionaryService) ProcessAnswer(ctx context.Context, userID uuid.UUID,
 		if progress.CorrectStreak >= 5 && progress.DifficultyLevel <= 0.3 {
 			progress.IsLearned = true
 		}
+		// Поскольку репозиторий делает +EXCLUDED.total_mistakes, при правильном ответе добавляем 0
+		progress.TotalMistakes = 0
 	} else {
 		progress.CorrectStreak = 0
 		progress.TotalMistakes = 1 // Это поле прибавится к существующему в SQL запросе (+ EXCLUDED.total_mistakes)
@@ -362,6 +382,7 @@ func (s *dictionaryService) MarkAsLearned(ctx context.Context, userID uuid.UUID,
 
 	progress.IsLearned = true
 	progress.DifficultyLevel = 0.0
+	progress.TotalMistakes = 0
 	progress.LastSeen = time.Now()
 
 	return s.repo.SaveUserProgress(ctx, progress)

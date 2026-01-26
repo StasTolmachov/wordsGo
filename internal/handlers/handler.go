@@ -51,12 +51,13 @@ func RegisterRoutes(h *Handler, jwtSecret string) *chi.Mux {
 
 		r.Post("/users", h.CreateUser)
 		r.Post("/login", h.Login)
-		r.Get("/users/{id}", h.GetUserByID)
-		r.Get("/users", h.GetUsers)
 
 		r.Group(func(r chi.Router) {
 			//r.Use(middleware.BasicAuthMiddleware(h.userService.Authenticate))
 			r.Use(middleware.AuthMidleware(jwtSecret))
+
+			r.Get("/users/{id}", h.GetUserByID)
+			r.Get("/users", h.GetUsers)
 
 			r.Get("/users/me", h.GetCurrentUser)
 			r.Put("/users/{id}", h.UpdateUser)
@@ -75,9 +76,28 @@ func RegisterRoutes(h *Handler, jwtSecret string) *chi.Mux {
 			r.Get("/lesson/start", h.StartLesson)
 			r.Post("/lesson/answer", h.SubmitAnswer)
 			r.Post("/lesson/learned/{id}", h.MarkAsLearned)
+
+			r.Delete("/users/progress", h.ResetProgress)
 		})
 	})
 	return r
+}
+
+func (h *Handler) ResetProgress(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value(middleware.UserCtxKey{}).(*models.User)
+
+	ctx, cancel := context.WithTimeout(r.Context(), ctxWithTimeout)
+	defer cancel()
+
+	if err := h.dict.ResetProgress(ctx, user.ID); err != nil {
+		WriteError(w, http.StatusInternalServerError, "Failed to reset progress")
+		return
+	}
+
+	JSONResponse(w, http.StatusOK, map[string]string{
+		"status":  "success",
+		"message": "All progress has been reset",
+	})
 }
 
 func (h *Handler) MarkAsLearned(w http.ResponseWriter, r *http.Request) {

@@ -34,6 +34,7 @@ func LoggerMiddleware(next http.Handler) http.Handler {
 		if requestID == "" {
 			requestID = uuid.New().String()
 		}
+		w.Header().Set("X-Request-ID", requestID)
 
 		ctx := context.WithValue(r.Context(), requestIDKey, requestID)
 		r = r.WithContext(ctx)

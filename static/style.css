@@ -257,6 +257,12 @@ button:disabled {
     color: var(--primary-color);
 }
 
+.lesson-transcription {
+    font-size: 0.5em;
+    color: #666;
+    margin-top: 5px;
+}
+
 #lesson-feedback {
     text-align: center;
     font-size: 1.2em;
