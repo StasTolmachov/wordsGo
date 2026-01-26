@@ -1,3 +1,4 @@
+//
 const API_URL = '/api/v1/wordsGo';
 let token = localStorage.getItem('token');
 let currentUser = null;
