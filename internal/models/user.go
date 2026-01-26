@@ -66,8 +66,8 @@ func ToUserResponse(user *User) *UserResponse {
 		Email:     user.Email,
 		FirstName: user.FirstName,
 		LastName:  user.LastName,
-		CreatedAt: user.CreatedAt.String(),
-		UpdatedAt: user.UpdatedAt.String(),
+		CreatedAt: user.CreatedAt.Format(time.RFC3339),
+		UpdatedAt: user.UpdatedAt.Format(time.RFC3339),
 	}
 }
 
@@ -139,8 +139,8 @@ func FromDBToUserResponse(user *modelsDB.UserDB) *UserResponse {
 		Role:       user.Role,
 		SourceLang: user.SourceLang,
 		TargetLang: user.TargetLang,
-		CreatedAt:  user.CreatedAt.String(),
-		UpdatedAt:  user.UpdatedAt.String(),
+		CreatedAt:  user.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:  user.UpdatedAt.Format(time.RFC3339),
 	}
 }
 
