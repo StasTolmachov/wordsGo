@@ -13,6 +13,7 @@ let currentLessonWords = [];
 let currentWordIndex = 0;
 let hasAttemptedCurrentWord = false;
 let lastAnswerWasCorrect = false;
+let failedWordIds = new Set();
 
 // DOM Elements
 const landingPage = document.getElementById('landing-page');
@@ -728,6 +729,7 @@ async function deleteWord(wordId) {
 // --- Lesson Logic ---
 
 async function startLesson() {
+    failedWordIds = new Set();
     loadNextLessonBatch();
 }
 
@@ -873,53 +875,124 @@ function displayQuestion() {
         } else {
             feedbackDiv.innerHTML = `<span class="incorrect-text">✗ Wrong.</span> ${detailsHtml}`;
             feedbackDiv.className = 'incorrect';
+            
+            // Logic for incorrect answer:
+            // 1. Add to failedWordIds
+            failedWordIds.add(currentWord.id);
+            // 2. Requeue the word to the end of the lesson to see it again
+            currentLessonWords.push(currentWord);
         }
 
         if (!hasAttemptedCurrentWord) {
-            submitAnswerToBackend(currentWord.id, lastAnswerWasCorrect);
-            hasAttemptedCurrentWord = true;
+            // Determine is_first_try: true if NOT in failedWordIds (before this attempt)
+            // Note: We just added it to failedWordIds if incorrect, but for the API request
+            // we want the status *before* this answer.
+            // Actually, the requirements say:
+            // "If answer CORRECT: Send is_first_try (calculated). Remove from queue."
+            // "If answer INCORRECT: Send is_first_try (calculated). Add to failedWordIds. Requeue."
+            // So we need to calculate isFirstTry BEFORE adding to failedWordIds if we want strictly "before this attempt".
+            // HOWEVER, the logic for calculation is:
+            // true: If word_id NOT in failedWordIds.
+            // false: If word_id IN failedWordIds.
+            
+            // If I just added it above, isFirstTry will be false for the current request if I check now.
+            // Let's adjust: Check isFirstTry at the start of handleCheck or before modifying failedWordIds.
+            // But wait, if I check before modifying, and this is the first time I see it:
+            // isFirstTry = true.
+            // I answer Wrong.
+            // Send is_first_try = true.
+            // Add to failedWordIds.
+            // Next time I see it: isFirstTry = false.
+            // This matches the scenario: "User sees 'Apple' ... Answers wrong. Send is_first_try: true. Add to failedWordIds."
+            
+            // So I need to capture the state *before* adding to the set.
+            // But I already added it above. Let's fix that order.
         }
 
         nextBtn.classList.remove('hidden');
-        if (lastAnswerWasCorrect) {
-            nextBtn.textContent = 'Next Word';
-        } else {
-            nextBtn.textContent = 'Try Again';
-        }
+        nextBtn.textContent = 'Next Word';
         
         nextBtn.focus();
     };
 
-    checkBtn.onclick = handleCheck;
+    checkBtn.onclick = () => {
+        const userAnswer = input.value.trim().toLowerCase();
+        const correctAnswer = decodeHTML(currentWord.original).trim().toLowerCase();
+        
+        lastAnswerWasCorrect = userAnswer === correctAnswer;
+
+        input.disabled = true;
+        checkBtn.disabled = true;
+
+        const isFirstTry = !failedWordIds.has(currentWord.id);
+
+        const detailsHtml = `
+            <div class="word-full-details">
+                <div class="main-word">${decodeHTML(currentWord.original)} ${currentWord.transcription ? `<span class="transcription">/${decodeHTML(currentWord.transcription)}/</span>` : ''}</div>
+                <div class="translation">${decodeHTML(currentWord.translation)}</div>
+                <div class="other-info">
+                    ${currentWord.pos ? `<span class="tag">${decodeHTML(currentWord.pos)}</span>` : ''}
+                    ${currentWord.level ? `<span class="tag level">${decodeHTML(currentWord.level)}</span>` : ''}
+                </div>
+                ${currentWord.synonyms ? `<div class="synonyms"><strong>Synonyms:</strong> ${decodeHTML(currentWord.synonyms)}</div>` : ''}
+                ${currentWord.past_simple_singular || currentWord.past_simple_plural || currentWord.past_participle_singular || currentWord.past_participle_plural ? `
+                    <div class="verb-forms">
+                        ${currentWord.past_simple_singular ? `<div><strong>Past Simple (s):</strong> ${decodeHTML(currentWord.past_simple_singular)}</div>` : ''}
+                        ${currentWord.past_simple_plural ? `<div><strong>Past Simple (p):</strong> ${decodeHTML(currentWord.past_simple_plural)}</div>` : ''}
+                        ${currentWord.past_participle_singular ? `<div><strong>Past Participle (s):</strong> ${decodeHTML(currentWord.past_participle_singular)}</div>` : ''}
+                        ${currentWord.past_participle_plural ? `<div><strong>Past Participle (p):</strong> ${decodeHTML(currentWord.past_participle_plural)}</div>` : ''}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+
+        if (lastAnswerWasCorrect) {
+            feedbackDiv.innerHTML = `<span class="correct-text">✓ Correct!</span> ${detailsHtml}`;
+            feedbackDiv.className = 'correct';
+            learnedBtn.classList.remove('hidden');
+            learnedBtn.onclick = handleMarkLearned;
+        } else {
+            feedbackDiv.innerHTML = `<span class="incorrect-text">✗ Wrong.</span> ${detailsHtml}`;
+            feedbackDiv.className = 'incorrect';
+            
+            failedWordIds.add(currentWord.id);
+            currentLessonWords.push(currentWord);
+        }
+
+        if (!hasAttemptedCurrentWord) {
+            submitAnswerToBackend(currentWord.id, lastAnswerWasCorrect, isFirstTry);
+            hasAttemptedCurrentWord = true;
+        }
+
+        nextBtn.classList.remove('hidden');
+        nextBtn.textContent = 'Next Word';
+        nextBtn.focus();
+    };
     
     // Set up Next Button Handler
     nextBtn.onclick = () => {
-        if (lastAnswerWasCorrect) {
-            // Move to next word
-            currentWordIndex++;
-            hasAttemptedCurrentWord = false; // Reset for new word
+        // Always move to next word now, since we requeue incorrect ones
+        currentWordIndex++;
+        hasAttemptedCurrentWord = false; // Reset for new word
 
-            if (currentWordIndex < currentLessonWords.length) {
-                displayQuestion();
-            } else {
-                // Fetch next batch instead of finishing
-                showToast('Great job! Loading more words...', 'success');
-                loadNextLessonBatch();
-            }
-        } else {
-            // Reload same word, don't increment index
+        if (currentWordIndex < currentLessonWords.length) {
             displayQuestion();
+        } else {
+            // Fetch next batch instead of finishing
+            showToast('Great job! Loading more words...', 'success');
+            loadNextLessonBatch();
         }
     };
 }
 
-async function submitAnswerToBackend(wordId, isCorrect) {
+async function submitAnswerToBackend(wordId, isCorrect, isFirstTry) {
     try {
         const response = await fetch(`${API_URL}/lesson/answer`, {
             method: 'POST',
             body: JSON.stringify({
                 word_id: wordId,
-                is_correct: isCorrect
+                is_correct: isCorrect,
+                is_first_try: isFirstTry
             }),
             headers: {
                 'Content-Type': 'application/json',

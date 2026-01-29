@@ -104,8 +104,9 @@ type LessonResponse struct {
 
 // SubmitAnswerRequest — запрос от клиента при ответе на слово.
 type SubmitAnswerRequest struct {
-	WordID    string `json:"word_id" validate:"required"`
-	IsCorrect bool   `json:"is_correct"`
+	WordID     string `json:"word_id" validate:"required"`
+	IsCorrect  bool   `json:"is_correct"`
+	IsFirstTry bool   `json:"is_first_try"`
 }
 
 // SubmitAnswerResponse — ответ сервера с обновленными метриками слова.

@@ -269,9 +269,17 @@ func (r *DictionaryRepo) GetUserProgress(ctx context.Context, userID, wordID uui
 
 // SaveUserProgress сохраняет прогресс. Использует ON CONFLICT для обновления существующих записей.
 func (r *DictionaryRepo) SaveUserProgress(ctx context.Context, p *modelsDB.UserProgressDB) error {
+	// TotalMistakes суммируется (+ EXCLUDED), чтобы накапливать статистику ошибок.
+	// Остальные поля перезаписываются.
 	query := `
-		INSERT INTO user_progress (user_id, word_id, is_learned, correct_streak, total_mistakes, difficulty_level, last_seen)
-		VALUES (:user_id, :word_id, :is_learned, :correct_streak, :total_mistakes, :difficulty_level, :last_seen)
+		INSERT INTO user_progress (
+			user_id, word_id, is_learned, correct_streak, total_mistakes, 
+			difficulty_level, last_seen
+		)
+		VALUES (
+			:user_id, :word_id, :is_learned, :correct_streak, :total_mistakes, 
+			:difficulty_level, :last_seen
+		)
 		ON CONFLICT (user_id, word_id) DO UPDATE SET
 			is_learned = EXCLUDED.is_learned,
 			correct_streak = EXCLUDED.correct_streak,

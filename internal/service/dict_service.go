@@ -156,6 +156,7 @@ func (s *dictionaryService) SearchWords(ctx context.Context, query string) ([]*m
 	}
 	return result, nil
 }
+
 func (s *dictionaryService) AddWordToLearning(ctx context.Context, userID uuid.UUID, wordIDStr string) error {
 	// 1. Валидация UUID
 	wordID, err := uuid.Parse(wordIDStr)
@@ -324,38 +325,74 @@ func (s *dictionaryService) ProcessAnswer(ctx context.Context, userID uuid.UUID,
 	}
 
 	// Если прогресса нет (первая встреча со словом), инициализируем
+	// ... (валидация wordID и получение progress как раньше) ...
+
 	if progress == nil {
 		progress = &modelsDB.UserProgressDB{
-			UserID:          userID,
-			WordID:          wordID,
-			DifficultyLevel: 0.0,
-			TotalMistakes:   0,
+			UserID: userID, WordID: wordID,
+			DifficultyLevel: 0.0, TotalMistakes: 0, CorrectStreak: 0,
 		}
 	}
 
-	// 2. Обновляем метрики
+	// === НАСТРОЙКИ АЛГОРИТМА ===
+
+	// Вес текущей попытки:
+	// Первая попытка в уроке (100%) = 1.0
+	// Повторная попытка после ошибки (50%) = 0.5
+	weight := 0.5
+	if req.IsFirstTry {
+		weight = 1.0
+	}
+
+	const improvementStep = 0.2 // Шаг снижения сложности
+	const penaltyStep = 0.3     // Шаг повышения сложности
+
 	progress.LastSeen = time.Now()
 
 	if req.IsCorrect {
-		progress.CorrectStreak++
-		// Уменьшаем сложность (минимум 0)
-		progress.DifficultyLevel = math.Max(0.0, progress.DifficultyLevel-0.1)
+		// --- ПРАВИЛЬНО ---
 
-		// Условие "Выучено": 5 раз подряд верно и сложность низкая
-		if progress.CorrectStreak >= 5 && progress.DifficultyLevel <= 0.3 {
+		// 1. Снижаем сложность
+		// Формула: СтараяСложность - (Шаг * Вес)
+		change := improvementStep * weight
+		progress.DifficultyLevel = math.Max(0.0, progress.DifficultyLevel-change)
+
+		// 2. Стрик (серия правильных ответов)
+		// Увеличиваем ТОЛЬКО если это честная первая попытка.
+		// Если юзер исправляет ошибку внутри урока — это не считается серией.
+		if req.IsFirstTry {
+			progress.CorrectStreak++
+		}
+
+		// 3. Проверка "Выучено"
+		// Условие: Сложность упала до минимума И есть стабильная серия (2 урока подряд)
+		if progress.DifficultyLevel <= 0.1 && progress.CorrectStreak >= 2 {
 			progress.IsLearned = true
 		}
-		// Поскольку репозиторий делает +EXCLUDED.total_mistakes, при правильном ответе добавляем 0
+
+		// Сбрасываем дельту ошибок (для корректного +0 в базе)
 		progress.TotalMistakes = 0
+
 	} else {
-		progress.CorrectStreak = 0
-		progress.TotalMistakes = 1 // Это поле прибавится к существующему в SQL запросе (+ EXCLUDED.total_mistakes)
+		// --- ОШИБКА ---
+
 		progress.IsLearned = false
-		// При ошибке сложность растет быстрее (максимум 1.0)
-		progress.DifficultyLevel = math.Min(1.0, progress.DifficultyLevel+0.3)
+
+		// 1. Повышаем сложность
+		// Формула: СтараяСложность + (Шаг * Вес)
+		change := penaltyStep * weight
+		progress.DifficultyLevel = math.Min(1.0, progress.DifficultyLevel+change)
+
+		// 2. Сбрасываем серию
+		progress.CorrectStreak = 0
+
+		// 3. Фиксируем факт ошибки
+		// Это нужно, чтобы GetLessonWords перестал считать слово "новым"
+		progress.TotalMistakes = 1
 	}
 
-	// 3. Сохраняем в БД
+	slogger.Log.DebugContext(ctx, "process answer request", "word", req.WordID, "progress", progress)
+	// Сохранение
 	err = s.repo.SaveUserProgress(ctx, progress)
 	if err != nil {
 		return nil, err
